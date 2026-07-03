@@ -161,3 +161,15 @@ async def test_prefilter_failure_falls_back_to_top_10(db_session):
     assert exa.fetch.await_args.args[0] == [f"https://a.com/{i}" for i in range(10)]
     db_session.refresh(run)
     assert run.status == "completed"
+    # Un step prefilter_failed est loggé pour tracer le fallback.
+    from app.models.run_step import RunStep
+
+    failed_steps = (
+        db_session.query(RunStep)
+        .filter(RunStep.run_id == run.id, RunStep.step_type == "prefilter_failed")
+        .all()
+    )
+    assert len(failed_steps) == 1
+    data = failed_steps[0].data or {}
+    assert data.get("fallback_count") == 10
+    assert "llm down" in data.get("error", "")

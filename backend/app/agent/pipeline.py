@@ -38,6 +38,7 @@ _STEP_MESSAGES = {
     "exa_search_done": "Exa — {result_count} résultat(s) en {duration_ms} ms",
     "prefilter_start": "Préfiltre LLM — {candidate_count} candidat(s)",
     "prefilter_done": "Préfiltre LLM — {kept_count} retenu(s), {rejected_count} rejeté(s) en {duration_ms} ms",
+    "prefilter_failed": "Préfiltre LLM indisponible — fallback top {fallback_count}",
     "exa_fetch_start": "Exa — récupération de {url_count} URL(s)",
     "exa_fetch_done": "Exa — {fetched_count} article(s) récupéré(s) en {duration_ms} ms",
     "article_skipped": "Article ignoré ({reason}) : {title}",
@@ -389,8 +390,15 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
 
                 try:
                     decisions = await prefilter.select(candidates, step_logger=step_logger)
-                except Exception:
+                except Exception as exc:
                     decisions = None  # fallback : tout garder, ordre Exa
+                    await step_logger(
+                        "prefilter_failed",
+                        {
+                            "fallback_count": min(len(new_urls), MAX_FETCH_PER_SEARCH),
+                            "error": str(exc),
+                        },
+                    )
 
                 if decisions is None:
                     kept_urls = new_urls[:MAX_FETCH_PER_SEARCH]
