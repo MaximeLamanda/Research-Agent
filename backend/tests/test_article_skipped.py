@@ -8,6 +8,16 @@ from app.models.processed_url import ProcessedUrl
 from app.models.run import Run
 
 
+def _keep_all_prefilter():
+    prefilter = AsyncMock()
+    prefilter.select = AsyncMock(
+        side_effect=lambda candidates, step_logger=None: {
+            c["url"]: (True, "") for c in candidates
+        }
+    )
+    return prefilter
+
+
 @pytest.mark.asyncio
 async def test_emits_article_skipped_for_known_url_at_search_time(db_session):
     config = Config(
@@ -38,6 +48,7 @@ async def test_emits_article_skipped_for_known_url_at_search_time(db_session):
         patch("app.agent.pipeline.get_or_create_config", return_value=config),
         patch("app.agent.pipeline.ExaClient") as exa_cls,
         patch("app.agent.pipeline.LLMExtractor") as llm_cls,
+        patch("app.agent.pipeline.UrlPrefilter", return_value=_keep_all_prefilter()),
         patch("app.agent.pipeline.run_dedup_pass", new_callable=AsyncMock),
         patch("app.agent.pipeline.emit_event", emit_mock),
     ):
@@ -85,6 +96,7 @@ async def test_emits_article_skipped_for_short_text(db_session):
         patch("app.agent.pipeline.get_or_create_config", return_value=config),
         patch("app.agent.pipeline.ExaClient") as exa_cls,
         patch("app.agent.pipeline.LLMExtractor") as llm_cls,
+        patch("app.agent.pipeline.UrlPrefilter", return_value=_keep_all_prefilter()),
         patch("app.agent.pipeline.run_dedup_pass", new_callable=AsyncMock),
         patch("app.agent.pipeline.emit_event", emit_mock),
     ):

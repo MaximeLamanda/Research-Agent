@@ -33,6 +33,10 @@ Une entrée par URL fournie, en conservant les URLs EXACTEMENT telles quelles.""
 
 def decisions_from_response(content: str) -> dict[str, tuple[bool, str]]:
     data = parse_json_content(content)
+    if isinstance(data, dict):
+        # Tolère un objet englobant ({"results": [...]}) ou une entrée unique.
+        wrapped = next((v for v in data.values() if isinstance(v, list)), None)
+        data = wrapped if wrapped is not None else [data]
     decisions: dict[str, tuple[bool, str]] = {}
     for item in data:
         url = item.get("url")

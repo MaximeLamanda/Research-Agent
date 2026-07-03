@@ -19,6 +19,7 @@ from app.agent.exa_client import ExaClient, parse_exa_published_date, published_
 from app.agent.published_date_presets import resolve_published_date_range
 from app.agent.llm_extractor import LLMExtractor
 from app.agent.queries import SECTOR_QUERIES_BY_COUNTRY
+from app.agent.url_prefilter import UrlPrefilter
 from app.api.config import get_or_create_config
 from app.config import settings
 from app.models.run import Run
@@ -27,11 +28,16 @@ from app.agent.known_urls import load_known_urls, mark_url_seen
 
 _run_events: dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
+EXA_NUM_RESULTS = 25
+MAX_FETCH_PER_SEARCH = 10
+
 _STEP_MESSAGES = {
     "run_started": "Run démarré",
     "searching": "Recherche articles — {sector} (dept. {department})",
     "exa_search_start": "Exa — lancement recherche ({sector}, dept. {department})",
     "exa_search_done": "Exa — {result_count} résultat(s) en {duration_ms} ms",
+    "prefilter_start": "Préfiltre LLM — {candidate_count} candidat(s)",
+    "prefilter_done": "Préfiltre LLM — {kept_count} retenu(s), {rejected_count} rejeté(s) en {duration_ms} ms",
     "exa_fetch_start": "Exa — récupération de {url_count} URL(s)",
     "exa_fetch_done": "Exa — {fetched_count} article(s) récupéré(s) en {duration_ms} ms",
     "article_skipped": "Article ignoré ({reason}) : {title}",
@@ -260,6 +266,7 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
 
     exa = ExaClient(settings.exa_api_key)
     llm = LLMExtractor()
+    prefilter = UrlPrefilter()
 
     known_urls = load_known_urls(session)
 
@@ -311,7 +318,7 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
                     )
                     search_results = await exa.search(
                         query,
-                        num_results=10,
+                        num_results=EXA_NUM_RESULTS,
                         search_type=config.exa_search_type,
                         category=config.exa_category or None,
                         start_published_date=(
@@ -365,12 +372,53 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
                 if not new_urls:
                     continue
 
+                candidates = []
+                for url in new_urls:
+                    result = search_by_url.get(url) or {}
+                    highlights = result.get("highlights") or []
+                    snippet = highlights[0] if highlights and isinstance(highlights[0], str) else ""
+                    candidates.append(
+                        {
+                            "url": url,
+                            "title": result.get("title") or url,
+                            "snippet": snippet,
+                            "published_at": result.get("publishedDate"),
+                            "score": result.get("score"),
+                        }
+                    )
+
+                try:
+                    decisions = await prefilter.select(candidates, step_logger=step_logger)
+                except Exception:
+                    decisions = None  # fallback : tout garder, ordre Exa
+
+                if decisions is None:
+                    kept_urls = new_urls[:MAX_FETCH_PER_SEARCH]
+                else:
+                    kept, rejected = [], []
+                    for candidate in candidates:
+                        fetch_flag, _reason = decisions.get(candidate["url"], (True, ""))
+                        (kept if fetch_flag else rejected).append(candidate)
+                    for candidate in rejected:
+                        await _emit_article_skipped(
+                            session,
+                            run_id,
+                            url=candidate["url"],
+                            title=candidate["title"],
+                            reason="prefiltered",
+                        )
+                    kept.sort(key=lambda c: c.get("score") or 0.0, reverse=True)
+                    kept_urls = [c["url"] for c in kept[:MAX_FETCH_PER_SEARCH]]
+
+                if not kept_urls:
+                    continue
+
                 published_by_url = published_dates_by_url(search_results)
 
                 try:
-                    await step_logger("exa_fetch_start", {"url_count": len(new_urls)})
+                    await step_logger("exa_fetch_start", {"url_count": len(kept_urls)})
                     fetch_started = time.monotonic()
-                    fetched = await exa.fetch(new_urls)
+                    fetched = await exa.fetch(kept_urls)
                     published_by_url.update(published_dates_by_url(fetched))
                     await step_logger(
                         "exa_fetch_done",

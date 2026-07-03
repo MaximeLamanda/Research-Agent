@@ -25,6 +25,20 @@ def test_decisions_from_response_parses_plain_json():
     assert decisions["https://a.com/2"] == (False, "voirie")
 
 
+def test_decisions_from_response_tolerates_wrapped_dict():
+    content = json.dumps(
+        {"results": [{"url": "https://a.com/1", "fetch": True, "reason": "ok"}]}
+    )
+    decisions = decisions_from_response(content)
+    assert decisions["https://a.com/1"] == (True, "ok")
+
+
+def test_decisions_from_response_tolerates_single_object():
+    content = json.dumps({"url": "https://a.com/1", "fetch": False, "reason": "voirie"})
+    decisions = decisions_from_response(content)
+    assert decisions["https://a.com/1"] == (False, "voirie")
+
+
 def test_decisions_from_response_parses_fenced_json():
     content = '```json\n[{"url": "https://a.com/1", "fetch": false, "reason": "hors sujet"}]\n```'
     decisions = decisions_from_response(content)
