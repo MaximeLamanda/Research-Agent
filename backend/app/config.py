@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     exa_api_key: str = ""
     ai_gateway_api_key: str = ""
     ai_model: str = "deepseek/deepseek-v4-flash"
+    ai_prefilter_model: str = "openai/gpt-4o-mini"
     testing: bool = False
 
     model_config = SettingsConfigDict(env_file=(".env", "../.env"), extra="ignore")
