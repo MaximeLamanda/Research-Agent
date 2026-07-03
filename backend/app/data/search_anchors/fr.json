@@ -1,0 +1,862 @@
+{
+  "01": {
+    "cities": [
+      "Bourg-en-Bresse",
+      "Oyonnax",
+      "Valserhône",
+      "Ambérieu-en-Bugey",
+      "Saint-Genis-Pouilly"
+    ]
+  },
+  "02": {
+    "cities": [
+      "Saint-Quentin",
+      "Soissons",
+      "Laon",
+      "Château-Thierry",
+      "Tergnier"
+    ]
+  },
+  "03": {
+    "cities": [
+      "Montluçon",
+      "Vichy",
+      "Moulins",
+      "Cusset",
+      "Yzeure"
+    ]
+  },
+  "04": {
+    "cities": [
+      "Manosque",
+      "Digne-les-Bains",
+      "Sisteron",
+      "Oraison",
+      "Forcalquier"
+    ]
+  },
+  "05": {
+    "cities": [
+      "Gap",
+      "Briançon",
+      "Embrun",
+      "Laragne-Montéglin",
+      "Veynes"
+    ]
+  },
+  "06": {
+    "cities": [
+      "Nice",
+      "Antibes",
+      "Cannes",
+      "Cagnes-sur-Mer",
+      "Grasse"
+    ]
+  },
+  "07": {
+    "cities": [
+      "Annonay",
+      "Aubenas",
+      "Tournon-sur-Rhône",
+      "Guilherand-Granges",
+      "Le Teil"
+    ]
+  },
+  "08": {
+    "cities": [
+      "Charleville-Mézières",
+      "Sedan",
+      "Rethel",
+      "Givet",
+      "Revin"
+    ]
+  },
+  "09": {
+    "cities": [
+      "Pamiers",
+      "Foix",
+      "Saint-Girons",
+      "Lavelanet",
+      "Saverdun"
+    ]
+  },
+  "10": {
+    "cities": [
+      "Troyes",
+      "Romilly-sur-Seine",
+      "Saint-André-les-Vergers",
+      "La Chapelle-Saint-Luc",
+      "Sainte-Savine"
+    ]
+  },
+  "11": {
+    "cities": [
+      "Narbonne",
+      "Carcassonne",
+      "Castelnaudary",
+      "Limoux",
+      "Lézignan-Corbières"
+    ]
+  },
+  "12": {
+    "cities": [
+      "Rodez",
+      "Millau",
+      "Onet-le-Château",
+      "Villefranche-de-Rouergue",
+      "Saint-Affrique"
+    ]
+  },
+  "13": {
+    "cities": [
+      "Marseille",
+      "Aix-en-Provence",
+      "Arles",
+      "Martigues",
+      "Aubagne"
+    ]
+  },
+  "14": {
+    "cities": [
+      "Caen",
+      "Hérouville-Saint-Clair",
+      "Lisieux",
+      "Vire Normandie",
+      "Bayeux"
+    ]
+  },
+  "15": {
+    "cities": [
+      "Aurillac",
+      "Saint-Flour",
+      "Arpajon-sur-Cère",
+      "Ytrac",
+      "Mauriac"
+    ]
+  },
+  "16": {
+    "cities": [
+      "Angoulême",
+      "Cognac",
+      "Soyaux",
+      "La Couronne",
+      "Saint-Yrieix-sur-Charente"
+    ]
+  },
+  "17": {
+    "cities": [
+      "La Rochelle",
+      "Saintes",
+      "Rochefort",
+      "Royan",
+      "Aytré"
+    ]
+  },
+  "18": {
+    "cities": [
+      "Bourges",
+      "Vierzon",
+      "Saint-Amand-Montrond",
+      "Saint-Doulchard",
+      "Saint-Florent-sur-Cher"
+    ]
+  },
+  "19": {
+    "cities": [
+      "Brive-la-Gaillarde",
+      "Tulle",
+      "Ussel",
+      "Malemort",
+      "Saint-Pantaléon-de-Larche"
+    ]
+  },
+  "2A": {
+    "cities": [
+      "Ajaccio",
+      "Porto-Vecchio",
+      "Bastelicaccia",
+      "Propriano",
+      "Grosseto-Prugna"
+    ]
+  },
+  "2B": {
+    "cities": [
+      "Bastia",
+      "Borgo",
+      "Corte",
+      "Biguglia",
+      "Lucciana"
+    ]
+  },
+  "21": {
+    "cities": [
+      "Dijon",
+      "Beaune",
+      "Chenôve",
+      "Talant",
+      "Chevigny-Saint-Sauveur"
+    ]
+  },
+  "22": {
+    "cities": [
+      "Saint-Brieuc",
+      "Lannion",
+      "Lamballe-Armor",
+      "Dinan",
+      "Plérin"
+    ]
+  },
+  "23": {
+    "cities": [
+      "Guéret",
+      "La Souterraine",
+      "Aubusson",
+      "Sainte-Feyre",
+      "Bourganeuf"
+    ]
+  },
+  "24": {
+    "cities": [
+      "Périgueux",
+      "Bergerac",
+      "Boulazac Isle Manoire",
+      "Sarlat-la-Canéda",
+      "Coulounieix-Chamiers"
+    ]
+  },
+  "25": {
+    "cities": [
+      "Besançon",
+      "Montbéliard",
+      "Pontarlier",
+      "Audincourt",
+      "Valentigney"
+    ]
+  },
+  "26": {
+    "cities": [
+      "Valence",
+      "Montélimar",
+      "Romans-sur-Isère",
+      "Bourg-lès-Valence",
+      "Pierrelatte"
+    ]
+  },
+  "27": {
+    "cities": [
+      "Évreux",
+      "Vernon",
+      "Louviers",
+      "Val-de-Reuil",
+      "Gisors"
+    ]
+  },
+  "28": {
+    "cities": [
+      "Chartres",
+      "Dreux",
+      "Lucé",
+      "Châteaudun",
+      "Vernouillet"
+    ]
+  },
+  "29": {
+    "cities": [
+      "Brest",
+      "Quimper",
+      "Concarneau",
+      "Landerneau",
+      "Guipavas"
+    ]
+  },
+  "30": {
+    "cities": [
+      "Nîmes",
+      "Alès",
+      "Bagnols-sur-Cèze",
+      "Beaucaire",
+      "Saint-Gilles"
+    ]
+  },
+  "31": {
+    "cities": [
+      "Toulouse",
+      "Colomiers",
+      "Tournefeuille",
+      "Blagnac",
+      "Muret"
+    ]
+  },
+  "32": {
+    "cities": [
+      "Auch",
+      "L'Isle-Jourdain",
+      "Condom",
+      "Fleurance",
+      "Eauze"
+    ]
+  },
+  "33": {
+    "cities": [
+      "Bordeaux",
+      "Mérignac",
+      "Pessac",
+      "Talence",
+      "Villenave-d'Ornon"
+    ]
+  },
+  "34": {
+    "cities": [
+      "Montpellier",
+      "Béziers",
+      "Sète",
+      "Agde",
+      "Lunel"
+    ]
+  },
+  "35": {
+    "cities": [
+      "Rennes",
+      "Saint-Malo",
+      "Fougères",
+      "Bruz",
+      "Vitré"
+    ]
+  },
+  "36": {
+    "cities": [
+      "Châteauroux",
+      "Issoudun",
+      "Déols",
+      "Le Blanc",
+      "Le Poinçonnet"
+    ]
+  },
+  "37": {
+    "cities": [
+      "Tours",
+      "Joué-lès-Tours",
+      "Saint-Cyr-sur-Loire",
+      "Saint-Pierre-des-Corps",
+      "Saint-Avertin"
+    ]
+  },
+  "38": {
+    "cities": [
+      "Grenoble",
+      "Saint-Martin-d'Hères",
+      "Échirolles",
+      "Vienne",
+      "Bourgoin-Jallieu"
+    ]
+  },
+  "39": {
+    "cities": [
+      "Dole",
+      "Lons-le-Saunier",
+      "Saint-Claude",
+      "Champagnole",
+      "Hauts de Bienne"
+    ]
+  },
+  "40": {
+    "cities": [
+      "Mont-de-Marsan",
+      "Dax",
+      "Biscarrosse",
+      "Saint-Paul-lès-Dax",
+      "Tarnos"
+    ]
+  },
+  "41": {
+    "cities": [
+      "Blois",
+      "Romorantin-Lanthenay",
+      "Vendôme",
+      "Vineuil",
+      "Le Controis-en-Sologne"
+    ]
+  },
+  "42": {
+    "cities": [
+      "Saint-Étienne",
+      "Saint-Chamond",
+      "Roanne",
+      "Firminy",
+      "Montbrison"
+    ]
+  },
+  "43": {
+    "cities": [
+      "Le Puy-en-Velay",
+      "Monistrol-sur-Loire",
+      "Yssingeaux",
+      "Brioude",
+      "Aurec-sur-Loire"
+    ]
+  },
+  "44": {
+    "cities": [
+      "Nantes",
+      "Saint-Nazaire",
+      "Saint-Herblain",
+      "Rezé",
+      "Saint-Sébastien-sur-Loire"
+    ]
+  },
+  "45": {
+    "cities": [
+      "Orléans",
+      "Olivet",
+      "Saint-Jean-de-Braye",
+      "Fleury-les-Aubrais",
+      "Saran"
+    ]
+  },
+  "46": {
+    "cities": [
+      "Cahors",
+      "Figeac",
+      "Gourdon",
+      "Pradines",
+      "Gramat"
+    ]
+  },
+  "47": {
+    "cities": [
+      "Agen",
+      "Villeneuve-sur-Lot",
+      "Marmande",
+      "Tonneins",
+      "Le Passage"
+    ]
+  },
+  "48": {
+    "cities": [
+      "Mende",
+      "Marvejols",
+      "Saint-Chély-d'Apcher",
+      "Langogne",
+      "Peyre en Aubrac"
+    ]
+  },
+  "49": {
+    "cities": [
+      "Angers",
+      "Cholet",
+      "Saumur",
+      "Sèvremoine",
+      "Beaupréau-en-Mauges"
+    ]
+  },
+  "50": {
+    "cities": [
+      "Cherbourg-en-Cotentin",
+      "Saint-Lô",
+      "Granville",
+      "La Hague",
+      "Carentan-les-Marais"
+    ]
+  },
+  "51": {
+    "cities": [
+      "Reims",
+      "Châlons-en-Champagne",
+      "Épernay",
+      "Vitry-le-François",
+      "Tinqueux"
+    ]
+  },
+  "52": {
+    "cities": [
+      "Saint-Dizier",
+      "Chaumont",
+      "Langres",
+      "Nogent",
+      "Joinville"
+    ]
+  },
+  "53": {
+    "cities": [
+      "Laval",
+      "Château-Gontier-sur-Mayenne",
+      "Mayenne",
+      "Évron",
+      "Saint-Berthevin"
+    ]
+  },
+  "54": {
+    "cities": [
+      "Nancy",
+      "Vandœuvre-lès-Nancy",
+      "Lunéville",
+      "Toul",
+      "Longwy"
+    ]
+  },
+  "55": {
+    "cities": [
+      "Verdun",
+      "Bar-le-Duc",
+      "Commercy",
+      "Saint-Mihiel",
+      "Ligny-en-Barrois"
+    ]
+  },
+  "56": {
+    "cities": [
+      "Lorient",
+      "Vannes",
+      "Lanester",
+      "Ploemeur",
+      "Hennebont"
+    ]
+  },
+  "57": {
+    "cities": [
+      "Metz",
+      "Thionville",
+      "Montigny-lès-Metz",
+      "Forbach",
+      "Sarreguemines"
+    ]
+  },
+  "58": {
+    "cities": [
+      "Nevers",
+      "Cosne-Cours-sur-Loire",
+      "Varennes-Vauzelles",
+      "Decize",
+      "La Charité-sur-Loire"
+    ]
+  },
+  "59": {
+    "cities": [
+      "Lille",
+      "Tourcoing",
+      "Roubaix",
+      "Dunkerque",
+      "Villeneuve-d'Ascq"
+    ]
+  },
+  "60": {
+    "cities": [
+      "Beauvais",
+      "Compiègne",
+      "Creil",
+      "Nogent-sur-Oise",
+      "Senlis"
+    ]
+  },
+  "61": {
+    "cities": [
+      "Alençon",
+      "Flers",
+      "Argentan",
+      "L'Aigle",
+      "La Ferté Macé"
+    ]
+  },
+  "62": {
+    "cities": [
+      "Calais",
+      "Arras",
+      "Boulogne-sur-Mer",
+      "Lens",
+      "Liévin"
+    ]
+  },
+  "63": {
+    "cities": [
+      "Clermont-Ferrand",
+      "Cournon-d'Auvergne",
+      "Riom",
+      "Chamalières",
+      "Issoire"
+    ]
+  },
+  "64": {
+    "cities": [
+      "Pau",
+      "Bayonne",
+      "Anglet",
+      "Biarritz",
+      "Hendaye"
+    ]
+  },
+  "65": {
+    "cities": [
+      "Tarbes",
+      "Lourdes",
+      "Aureilhan",
+      "Bagnères-de-Bigorre",
+      "Lannemezan"
+    ]
+  },
+  "66": {
+    "cities": [
+      "Perpignan",
+      "Canet-en-Roussillon",
+      "Saint-Cyprien",
+      "Saint-Estève",
+      "Pia"
+    ]
+  },
+  "67": {
+    "cities": [
+      "Strasbourg",
+      "Haguenau",
+      "Schiltigheim",
+      "Illkirch-Graffenstaden",
+      "Lingolsheim"
+    ]
+  },
+  "68": {
+    "cities": [
+      "Mulhouse",
+      "Colmar",
+      "Saint-Louis",
+      "Wittenheim",
+      "Illzach"
+    ]
+  },
+  "69": {
+    "cities": [
+      "Lyon",
+      "Villeurbanne",
+      "Vénissieux",
+      "Vaulx-en-Velin",
+      "Saint-Priest"
+    ]
+  },
+  "70": {
+    "cities": [
+      "Vesoul",
+      "Héricourt",
+      "Lure",
+      "Luxeuil-les-Bains",
+      "Gray"
+    ]
+  },
+  "71": {
+    "cities": [
+      "Chalon-sur-Saône",
+      "Mâcon",
+      "Le Creusot",
+      "Montceau-les-Mines",
+      "Autun"
+    ]
+  },
+  "72": {
+    "cities": [
+      "Le Mans",
+      "La Flèche",
+      "Sablé-sur-Sarthe",
+      "Allonnes",
+      "La Ferté-Bernard"
+    ]
+  },
+  "73": {
+    "cities": [
+      "Chambéry",
+      "Aix-les-Bains",
+      "Albertville",
+      "La Motte-Servolex",
+      "La Ravoire"
+    ]
+  },
+  "74": {
+    "cities": [
+      "Annecy",
+      "Thonon-les-Bains",
+      "Annemasse",
+      "Cluses",
+      "Sallanches"
+    ]
+  },
+  "75": {
+    "cities": [
+      "Paris"
+    ]
+  },
+  "76": {
+    "cities": [
+      "Le Havre",
+      "Rouen",
+      "Saint-Étienne-du-Rouvray",
+      "Sotteville-lès-Rouen",
+      "Dieppe"
+    ]
+  },
+  "77": {
+    "cities": [
+      "Meaux",
+      "Chelles",
+      "Melun",
+      "Pontault-Combault",
+      "Savigny-le-Temple"
+    ]
+  },
+  "78": {
+    "cities": [
+      "Versailles",
+      "Sartrouville",
+      "Saint-Germain-en-Laye",
+      "Mantes-la-Jolie",
+      "Poissy"
+    ]
+  },
+  "79": {
+    "cities": [
+      "Niort",
+      "Bressuire",
+      "Thouars",
+      "Parthenay",
+      "Mauléon"
+    ]
+  },
+  "80": {
+    "cities": [
+      "Amiens",
+      "Abbeville",
+      "Albert",
+      "Péronne",
+      "Corbie"
+    ]
+  },
+  "81": {
+    "cities": [
+      "Albi",
+      "Castres",
+      "Gaillac",
+      "Graulhet",
+      "Lavaur"
+    ]
+  },
+  "82": {
+    "cities": [
+      "Montauban",
+      "Castelsarrasin",
+      "Moissac",
+      "Caussade",
+      "Montech"
+    ]
+  },
+  "83": {
+    "cities": [
+      "Toulon",
+      "La Seyne-sur-Mer",
+      "Fréjus",
+      "Hyères",
+      "Draguignan"
+    ]
+  },
+  "84": {
+    "cities": [
+      "Avignon",
+      "Carpentras",
+      "Orange",
+      "Cavaillon",
+      "L'Isle-sur-la-Sorgue"
+    ]
+  },
+  "85": {
+    "cities": [
+      "La Roche-sur-Yon",
+      "Les Sables-d'Olonne",
+      "Challans",
+      "Montaigu-Vendée",
+      "Les Herbiers"
+    ]
+  },
+  "86": {
+    "cities": [
+      "Poitiers",
+      "Châtellerault",
+      "Buxerolles",
+      "Jaunay-Marigny",
+      "Saint-Benoît"
+    ]
+  },
+  "87": {
+    "cities": [
+      "Limoges",
+      "Saint-Junien",
+      "Panazol",
+      "Couzeix",
+      "Isle"
+    ]
+  },
+  "88": {
+    "cities": [
+      "Épinal",
+      "Saint-Dié-des-Vosges",
+      "Golbey",
+      "Thaon-les-Vosges",
+      "Gérardmer"
+    ]
+  },
+  "89": {
+    "cities": [
+      "Auxerre",
+      "Sens",
+      "Joigny",
+      "Migennes",
+      "Avallon"
+    ]
+  },
+  "90": {
+    "cities": [
+      "Belfort",
+      "Delle",
+      "Valdoie",
+      "Beaucourt",
+      "Bavilliers"
+    ]
+  },
+  "91": {
+    "cities": [
+      "Évry-Courcouronnes",
+      "Corbeil-Essonnes",
+      "Massy",
+      "Savigny-sur-Orge",
+      "Palaiseau"
+    ]
+  },
+  "92": {
+    "cities": [
+      "Boulogne-Billancourt",
+      "Nanterre",
+      "Asnières-sur-Seine",
+      "Colombes",
+      "Courbevoie"
+    ]
+  },
+  "93": {
+    "cities": [
+      "Saint-Denis",
+      "Montreuil",
+      "Aubervilliers",
+      "Aulnay-sous-Bois",
+      "Noisy-le-Grand"
+    ]
+  },
+  "94": {
+    "cities": [
+      "Vitry-sur-Seine",
+      "Créteil",
+      "Champigny-sur-Marne",
+      "Saint-Maur-des-Fossés",
+      "Ivry-sur-Seine"
+    ]
+  },
+  "95": {
+    "cities": [
+      "Argenteuil",
+      "Cergy",
+      "Sarcelles",
+      "Garges-lès-Gonesse",
+      "Franconville"
+    ]
+  }
+}

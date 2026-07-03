@@ -1,0 +1,135 @@
+{
+  "BW": {
+    "cities": [
+      "Stuttgart",
+      "Mannheim",
+      "Karlsruhe",
+      "Freiburg im Breisgau",
+      "Heidelberg"
+    ]
+  },
+  "BY": {
+    "cities": [
+      "München",
+      "Nürnberg",
+      "Augsburg",
+      "Regensburg",
+      "Ingolstadt"
+    ]
+  },
+  "BE": {
+    "cities": [
+      "Berlin"
+    ]
+  },
+  "BB": {
+    "cities": [
+      "Potsdam",
+      "Cottbus",
+      "Brandenburg an der Havel",
+      "Frankfurt (Oder)",
+      "Oranienburg"
+    ]
+  },
+  "HB": {
+    "cities": [
+      "Bremen",
+      "Bremerhaven"
+    ]
+  },
+  "HH": {
+    "cities": [
+      "Hamburg"
+    ]
+  },
+  "HE": {
+    "cities": [
+      "Frankfurt am Main",
+      "Wiesbaden",
+      "Kassel",
+      "Darmstadt",
+      "Offenbach am Main"
+    ]
+  },
+  "MV": {
+    "cities": [
+      "Rostock",
+      "Schwerin",
+      "Neubrandenburg",
+      "Stralsund",
+      "Greifswald"
+    ]
+  },
+  "NI": {
+    "cities": [
+      "Hannover",
+      "Braunschweig",
+      "Osnabrück",
+      "Oldenburg",
+      "Wolfsburg"
+    ]
+  },
+  "NW": {
+    "cities": [
+      "Köln",
+      "Düsseldorf",
+      "Dortmund",
+      "Essen",
+      "Duisburg"
+    ]
+  },
+  "RP": {
+    "cities": [
+      "Mainz",
+      "Ludwigshafen am Rhein",
+      "Koblenz",
+      "Trier",
+      "Kaiserslautern"
+    ]
+  },
+  "SL": {
+    "cities": [
+      "Saarbrücken",
+      "Neunkirchen",
+      "Homburg",
+      "Völklingen",
+      "Saarlouis"
+    ]
+  },
+  "SN": {
+    "cities": [
+      "Dresden",
+      "Leipzig",
+      "Chemnitz",
+      "Zwickau",
+      "Plauen"
+    ]
+  },
+  "ST": {
+    "cities": [
+      "Magdeburg",
+      "Halle (Saale)",
+      "Dessau-Roßlau",
+      "Wittenberg",
+      "Halberstadt"
+    ]
+  },
+  "SH": {
+    "cities": [
+      "Kiel",
+      "Lübeck",
+      "Flensburg",
+      "Neumünster",
+      "Norderstedt"
+    ]
+  },
+  "TH": {
+    "cities": [
+      "Erfurt",
+      "Jena",
+      "Gera",
+      "Weimar",
+      "Gotha"
+    ]
+  }
+}
