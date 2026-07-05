@@ -19,6 +19,7 @@ const STEP_LABELS: Record<string, string> = {
   llm_extract_start: "LLM extraction",
   llm_extract_done: "LLM extraction OK",
   article_not_relevant: "Non pertinent",
+  article_skipped: "Article ignoré",
   company_searching: "Recherche SIREN",
   api_entreprise_search_start: "API gouv",
   api_entreprise_search_done: "API gouv OK",
@@ -49,6 +50,7 @@ const STEP_COLORS: Record<string, string> = {
   api_entreprise_search_start: "bg-teal-500",
   api_entreprise_search_done: "bg-teal-400",
   article_not_relevant: "bg-orange-400",
+  article_skipped: "bg-gray-400",
   project_found: "bg-emerald-500",
   run_failed: "bg-red-500",
 };
