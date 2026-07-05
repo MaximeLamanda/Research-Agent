@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
-from app.data.departments import ensure_department
+from app.data.departments import ensure_department, format_department
 from app.db.session import get_db
 from app.models.project import Project
 from app.models.project_merge import ProjectMerge
@@ -52,6 +52,8 @@ def _project_to_read(project: Project) -> ProjectRead:
 @router.get("", response_model=list[ProjectRead])
 def list_projects(
     department: str | None = Query(None),
+    departments: list[str] | None = Query(None),
+    country: str = Query("FR"),
     status: str | None = Query(None),
     sector: str | None = Query(None),
     db: Session = Depends(get_db),
@@ -59,10 +61,15 @@ def list_projects(
     query = db.query(Project).options(
         joinedload(Project.sources).joinedload(Source.run)
     )
-    if department:
-        dept_filter = ensure_department(department, department)
-        if dept_filter:
-            query = query.filter(Project.department == dept_filter)
+    dept_codes = departments or ([department] if department else [])
+    if dept_codes:
+        normalized = []
+        for code in dept_codes:
+            fmt = ensure_department(code, code, country) or format_department(code, country)
+            if fmt:
+                normalized.append(fmt)
+        if normalized:
+            query = query.filter(Project.department.in_(normalized))
     if status:
         query = query.filter(Project.status == status)
     if sector:
