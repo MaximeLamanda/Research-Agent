@@ -132,12 +132,16 @@ async def _emit_article_skipped(
     url: str,
     title: str,
     reason: str,
+    extra: dict | None = None,
 ) -> None:
+    payload = {"url": url, "title": title, "reason": reason}
+    if extra:
+        payload.update(extra)
     await log_and_emit(
         session,
         run_id,
         "article_skipped",
-        {"url": url, "title": title, "reason": reason},
+        payload,
     )
 
 
@@ -493,6 +497,20 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
                         and target_department
                         and extracted_department != target_department
                     ):
+                        mark_url_seen(session, url, "wrong_department", run_id)
+                        known_urls.add(url)
+                        session.commit()
+                        await _emit_article_skipped(
+                            session,
+                            run_id,
+                            url=url,
+                            title=title,
+                            reason="wrong_department",
+                            extra={
+                                "target_department": target_department,
+                                "extracted_department": extracted_department,
+                            },
+                        )
                         continue
 
                     extraction.department = ensure_department(
