@@ -54,6 +54,7 @@ _STEP_MESSAGES = {
     "company_resolved": "SIREN identifié : {siren} ({company_legal_name})",
     "company_skipped": "SIREN non identifié : {reason}",
     "project_found": "Projet traité : {name}",
+    "project_imported_cross_department": "Import cross-dépt. ({extracted_department}) : {name}",
     "deduplicating": "Consolidation des doublons…",
     "llm_dedup_start": "LLM — comparaison doublons : {project_a} vs {project_b}",
     "llm_dedup_done": "LLM — comparaison doublons en {duration_ms} ms (same={same_project}){reason_suffix}",
@@ -492,30 +493,17 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
 
                     target_department = format_department(department, country)
                     extracted_department = normalize_department(extraction.department, country)
-                    if (
+                    cross_department = bool(
                         extracted_department
                         and target_department
                         and extracted_department != target_department
-                    ):
-                        mark_url_seen(session, url, "wrong_department", run_id)
-                        known_urls.add(url)
-                        session.commit()
-                        await _emit_article_skipped(
-                            session,
-                            run_id,
-                            url=url,
-                            title=title,
-                            reason="wrong_department",
-                            extra={
-                                "target_department": target_department,
-                                "extracted_department": extracted_department,
-                            },
-                        )
-                        continue
-
-                    extraction.department = ensure_department(
-                        extraction.department, department, country
                     )
+                    if cross_department:
+                        extraction.department = extracted_department
+                    else:
+                        extraction.department = ensure_department(
+                            extraction.department, department, country
+                        )
                     if not extraction.sector:
                         extraction.sector = sector  # type: ignore[assignment]
 
@@ -577,23 +565,40 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
                     session.commit()
 
                     known_urls.add(url)
-                    run.articles_found += 1
-                    if is_new:
-                        run.projects_new += 1
+                    if cross_department:
+                        mark_url_seen(session, url, "cross_department", run_id)
+                        session.commit()
+                        await log_and_emit(
+                            session,
+                            run_id,
+                            "project_imported_cross_department",
+                            {
+                                "url": url,
+                                "title": title,
+                                "name": project.name,
+                                "project_id": str(project.id),
+                                "is_new": is_new,
+                                "target_department": target_department,
+                                "extracted_department": extracted_department,
+                            },
+                        )
                     else:
-                        run.projects_updated += 1
-                    session.commit()
-
-                    await log_and_emit(
-                        session,
-                        run_id,
-                        "project_found",
-                        {
-                            "project_id": str(project.id),
-                            "name": project.name,
-                            "is_new": is_new,
-                        },
-                    )
+                        run.articles_found += 1
+                        if is_new:
+                            run.projects_new += 1
+                        else:
+                            run.projects_updated += 1
+                        session.commit()
+                        await log_and_emit(
+                            session,
+                            run_id,
+                            "project_found",
+                            {
+                                "project_id": str(project.id),
+                                "name": project.name,
+                                "is_new": is_new,
+                            },
+                        )
 
                     found_relevant = True
                     if test_single:
