@@ -172,8 +172,12 @@ export function getSearchAnchors(country: string, codes?: string[]) {
   return request<Record<string, RegionAnchor>>(`/api/search-anchors?${params.toString()}`);
 }
 
-export function getProjects() {
-  return request<Project[]>("/api/projects");
+export function getProjects(params?: { departments?: string[]; country?: string }) {
+  const search = new URLSearchParams();
+  params?.departments?.forEach((d) => search.append("departments", d));
+  if (params?.country) search.set("country", params.country);
+  const qs = search.toString();
+  return request<Project[]>(`/api/projects${qs ? `?${qs}` : ""}`);
 }
 
 export function getProject(projectId: string) {

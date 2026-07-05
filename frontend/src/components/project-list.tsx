@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { FileSpreadsheet } from "lucide-react";
-import { getProjects, Project } from "@/lib/api";
+import { DepartmentCombobox } from "@/components/department-combobox";
+import { getConfig, getProjects, Project } from "@/lib/api";
 import { COUNTRIES } from "@/data/countries";
 import {
   exportProjectsToExcel,
@@ -35,12 +36,26 @@ export function ProjectList({ refreshKey }: { refreshKey: number }) {
   const [exporting, setExporting] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportCountry, setExportCountry] = useState("FR");
+  const [filterCountry, setFilterCountry] = useState("FR");
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
+
+  useEffect(() => {
+    getConfig()
+      .then((config) => setFilterCountry(config.country || "FR"))
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getProjects();
+      const data =
+        selectedDepartments.length > 0
+          ? await getProjects({
+              departments: selectedDepartments,
+              country: filterCountry,
+            })
+          : await getProjects();
       setProjects(data);
     } catch {
       setError(
@@ -49,11 +64,11 @@ export function ProjectList({ refreshKey }: { refreshKey: number }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedDepartments, filterCountry]);
 
   useEffect(() => {
     load();
-  }, [load, refreshKey]);
+  }, [load, refreshKey, selectedDepartments, filterCountry]);
 
   function openProject(project: Project) {
     setSelectedProject(project);
@@ -80,7 +95,7 @@ export function ProjectList({ refreshKey }: { refreshKey: number }) {
     return <p className="text-sm text-destructive">{error}</p>;
   }
 
-  if (projects.length === 0) {
+  if (projects.length === 0 && selectedDepartments.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
         No projects yet. Configure regions and start a search.
@@ -88,64 +103,86 @@ export function ProjectList({ refreshKey }: { refreshKey: number }) {
     );
   }
 
+  const filteredEmpty =
+    selectedDepartments.length > 0 && projects.length === 0 && !loading;
+
   return (
     <>
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">{projects.length} project(s)</h2>
-          <Popover open={exportOpen} onOpenChange={setExportOpen}>
-            <PopoverTrigger
-              render={
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  aria-label="Export to Excel"
-                />
-              }
-            >
-              <FileSpreadsheet />
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-64">
-              <PopoverHeader>
-                <PopoverTitle>Export Excel</PopoverTitle>
-                <PopoverDescription>
-                  Sélectionnez la région à inclure dans l&apos;export.
-                </PopoverDescription>
-              </PopoverHeader>
-              <div className="flex flex-col gap-1.5">
-                {COUNTRIES.map((country) => (
-                  <button
-                    key={country.code}
-                    type="button"
-                    onClick={() => setExportCountry(country.code)}
-                    className={cn(
-                      "flex items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors",
-                      exportCountry === country.code
-                        ? "border-primary bg-primary/5 font-medium"
-                        : "border-transparent hover:bg-muted"
-                    )}
-                  >
-                    <span>{EXPORT_COUNTRY_LABELS[country.code] ?? country.label}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {filterProjectsByCountry(projects, country.code).length}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <Button
-                className="w-full"
-                size="sm"
-                onClick={handleExport}
-                disabled={exporting || exportCount === 0}
-              >
-                {exporting
-                  ? "Export en cours…"
-                  : `Exporter (${exportCount} projet${exportCount > 1 ? "s" : ""})`}
-              </Button>
-            </PopoverContent>
-          </Popover>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <label className="text-sm font-medium shrink-0">Filtrer par région</label>
+          <DepartmentCombobox
+            country={filterCountry}
+            value={selectedDepartments}
+            onChange={setSelectedDepartments}
+          />
         </div>
-        <ProjectTable projects={projects} onProjectClick={openProject} />
+
+        {filteredEmpty ? (
+          <p className="text-sm text-muted-foreground">
+            Aucun projet pour les régions sélectionnées.
+          </p>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">{projects.length} project(s)</h2>
+              <Popover open={exportOpen} onOpenChange={setExportOpen}>
+                <PopoverTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      aria-label="Export to Excel"
+                    />
+                  }
+                >
+                  <FileSpreadsheet />
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-64">
+                  <PopoverHeader>
+                    <PopoverTitle>Export Excel</PopoverTitle>
+                    <PopoverDescription>
+                      Sélectionnez la région à inclure dans l&apos;export.
+                    </PopoverDescription>
+                  </PopoverHeader>
+                  <div className="flex flex-col gap-1.5">
+                    {COUNTRIES.map((country) => (
+                      <button
+                        key={country.code}
+                        type="button"
+                        onClick={() => setExportCountry(country.code)}
+                        className={cn(
+                          "flex items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors",
+                          exportCountry === country.code
+                            ? "border-primary bg-primary/5 font-medium"
+                            : "border-transparent hover:bg-muted"
+                        )}
+                      >
+                        <span>
+                          {EXPORT_COUNTRY_LABELS[country.code] ?? country.label}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {filterProjectsByCountry(projects, country.code).length}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  <Button
+                    className="w-full"
+                    size="sm"
+                    onClick={handleExport}
+                    disabled={exporting || exportCount === 0}
+                  >
+                    {exporting
+                      ? "Export en cours…"
+                      : `Exporter (${exportCount} projet${exportCount > 1 ? "s" : ""})`}
+                  </Button>
+                </PopoverContent>
+              </Popover>
+            </div>
+            <ProjectTable projects={projects} onProjectClick={openProject} />
+          </>
+        )}
       </div>
 
       <ProjectDetailDrawer
