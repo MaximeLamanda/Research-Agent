@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/accordion";
 import {
   sectorLabel,
+  SKIP_REASON_LABELS,
   type ArticleBatch,
   type ArticleLine,
   type BatchesState,
@@ -60,7 +61,12 @@ function ArticleRow({ article }: { article: ArticleLine }) {
           {article.score.toFixed(2)}
         </span>
       )}
-      {article.status === "ignored" && (
+      {article.status === "ignored" && article.skipReason && (
+        <span className="shrink-0 text-[10px] text-muted-foreground">
+          {SKIP_REASON_LABELS[article.skipReason] ?? article.skipReason}
+        </span>
+      )}
+      {article.status === "ignored" && !article.skipReason && (
         <span className="shrink-0 text-[10px] text-muted-foreground">ignoré</span>
       )}
     </li>

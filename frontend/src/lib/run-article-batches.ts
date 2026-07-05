@@ -1,3 +1,14 @@
+export const SKIP_REASON_LABELS: Record<string, string> = {
+  known: "connu",
+  blocked: "bloqué",
+  prefiltered: "préfiltré",
+  not_fetched: "non fetché",
+  short_text: "texte court",
+  extraction_failed: "extraction échouée",
+  wrong_department: "hors dépt.",
+  skipped: "ignoré",
+};
+
 export type ArticleLineStatus =
   | "pending"
   | "scanning"
