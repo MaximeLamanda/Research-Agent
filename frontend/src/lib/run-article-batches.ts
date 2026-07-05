@@ -5,7 +5,6 @@ export const SKIP_REASON_LABELS: Record<string, string> = {
   not_fetched: "non fetché",
   short_text: "texte court",
   extraction_failed: "extraction échouée",
-  wrong_department: "hors dépt.",
   skipped: "ignoré",
 };
 
@@ -14,7 +13,8 @@ export type ArticleLineStatus =
   | "scanning"
   | "done"
   | "ignored"
-  | "not_relevant";
+  | "not_relevant"
+  | "cross_department";
 
 export interface ArticleLine {
   url: string;
@@ -22,6 +22,7 @@ export interface ArticleLine {
   score?: number;
   status: ArticleLineStatus;
   skipReason?: string;
+  importedDepartment?: string;
 }
 
 export interface ArticleBatch {
@@ -38,7 +39,7 @@ export interface BatchesState {
   scanningUrl: string | null;
 }
 
-const TERMINAL: ArticleLineStatus[] = ["done", "ignored", "not_relevant"];
+const TERMINAL: ArticleLineStatus[] = ["done", "ignored", "not_relevant", "cross_department"];
 
 const SECTOR_LABELS: Record<string, string> = {
   industriel: "Industriel",
@@ -183,6 +184,17 @@ export function applyRunStreamEvent(
         ...a,
         status: "not_relevant",
       }));
+
+    case "project_imported_cross_department": {
+      const url = String(data.url ?? "");
+      const extracted = String(data.extracted_department ?? "");
+      const deptCode = extracted.split(" - ")[0] || extracted;
+      return updateArticleInLatestBatch(state, url, (a) => ({
+        ...a,
+        status: "cross_department",
+        importedDepartment: deptCode,
+      }));
+    }
 
     case "run_started":
       return initialBatchesState();

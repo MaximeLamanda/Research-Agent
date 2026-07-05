@@ -66,29 +66,21 @@ describe("applyRunStreamEvent", () => {
     expect(state.batches[0].collapsed).toBe(true);
   });
 
-  it("overrides done status to ignored on wrong_department skip", () => {
+  it("marks article as cross_department on project_imported_cross_department", () => {
     let state = applyRunStreamEvent(initialBatchesState(), "exa_search_done", {
       sector: "industriel",
       department: "77",
       results: [{ url: "https://a.com/rhone", title: "Amazon Lyon", score: 0.9 }],
     });
-    state = applyRunStreamEvent(state, "extracting", {
+    state = applyRunStreamEvent(state, "extracting", { url: "https://a.com/rhone", title: "Amazon Lyon" });
+    state = applyRunStreamEvent(state, "llm_extract_done", { title: "Amazon Lyon", is_relevant: true });
+    state = applyRunStreamEvent(state, "project_imported_cross_department", {
       url: "https://a.com/rhone",
-      title: "Amazon Lyon",
-    });
-    state = applyRunStreamEvent(state, "llm_extract_done", {
-      title: "Amazon Lyon",
-      is_relevant: true,
-    });
-    expect(state.batches[0].articles[0].status).toBe("done");
-
-    state = applyRunStreamEvent(state, "article_skipped", {
-      url: "https://a.com/rhone",
-      reason: "wrong_department",
-      target_department: "77 - Seine-et-Marne",
       extracted_department: "69 - Rhône",
+      target_department: "77 - Seine-et-Marne",
+      name: "Amazon warehouse",
     });
-    expect(state.batches[0].articles[0].status).toBe("ignored");
-    expect(state.batches[0].articles[0].skipReason).toBe("wrong_department");
+    expect(state.batches[0].articles[0].status).toBe("cross_department");
+    expect(state.batches[0].articles[0].importedDepartment).toBe("69");
   });
 });

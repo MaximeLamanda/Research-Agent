@@ -36,6 +36,8 @@ function StatusIcon({ article }: { article: ArticleLine }) {
       return <Minus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
     case "not_relevant":
       return <Check className="h-3.5 w-3.5 shrink-0 text-orange-400" />;
+    case "cross_department":
+      return <Check className="h-3.5 w-3.5 shrink-0 text-sky-500" />;
     default:
       return <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />;
   }
@@ -69,6 +71,11 @@ function ArticleRow({ article }: { article: ArticleLine }) {
       {article.status === "ignored" && !article.skipReason && (
         <span className="shrink-0 text-[10px] text-muted-foreground">ignoré</span>
       )}
+      {article.status === "cross_department" && article.importedDepartment && (
+        <span className="shrink-0 text-[10px] text-sky-600">
+          importé → {article.importedDepartment}
+        </span>
+      )}
     </li>
   );
 }
@@ -81,7 +88,7 @@ function BatchBlock({
   onToggle: () => void;
 }) {
   const doneCount = batch.articles.filter((a) =>
-    ["done", "ignored", "not_relevant"].includes(a.status)
+    ["done", "ignored", "not_relevant", "cross_department"].includes(a.status)
   ).length;
 
   return (

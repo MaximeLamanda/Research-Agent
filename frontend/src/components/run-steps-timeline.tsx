@@ -28,6 +28,7 @@ const STEP_LABELS: Record<string, string> = {
   company_resolved: "SIREN identifié",
   company_skipped: "SIREN ignoré",
   project_found: "Projet",
+  project_imported_cross_department: "Import cross-dépt.",
   deduplicating: "Déduplication",
   llm_dedup_start: "LLM dédup",
   llm_dedup_done: "LLM dédup OK",
@@ -52,6 +53,7 @@ const STEP_COLORS: Record<string, string> = {
   article_not_relevant: "bg-orange-400",
   article_skipped: "bg-gray-400",
   project_found: "bg-emerald-500",
+  project_imported_cross_department: "bg-sky-400",
   run_failed: "bg-red-500",
 };
 

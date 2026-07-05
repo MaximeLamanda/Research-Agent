@@ -116,6 +116,13 @@ export function useRunStream(runId: string | null, onComplete?: () => void) {
             : `Synthesis — update: ${data.name}`,
         }));
       },
+      project_imported_cross_department: (data) => {
+        applyEvent("project_imported_cross_department", data);
+        setState((s) => ({
+          ...s,
+          message: `Import cross-dépt. : ${data.name}`,
+        }));
+      },
       company_searching: (data) => {
         applyEvent("company_searching", data);
         setState((s) => ({
