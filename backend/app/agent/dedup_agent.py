@@ -28,6 +28,8 @@ COMPANY_CITY_AUTO_MERGE = 0.65
 # Adresse : seuils plus bas car les libellés d'articles varient fortement (lieu-dit vs nom commercial).
 ADDRESS_AUTO_MERGE = 0.88
 ADDRESS_CANDIDATE_MIN = 0.55
+COMPANY_SIMILARITY_MIN = 0.85
+PEOPLE_NAME_SIMILARITY_MIN = 0.85
 
 _SAME_PROJECT_PROMPT = """Tu compares deux fiches projet extraites d'articles différents.
 S'agit-il du MÊME chantier physique (même site, même zone d'activité, même construction) ?
@@ -87,6 +89,37 @@ def _normalize_address(value: str) -> str:
     for char in "-_,;:/()":
         text = text.replace(char, " ")
     return " ".join(text.split())
+
+
+def _normalize_label(value: str) -> str:
+    text = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+    return text.lower().strip()
+
+
+def company_similarity(company_a: str | None, company_b: str | None) -> float:
+    if not company_a or not company_b:
+        return 0.0
+    return fuzz.token_set_ratio(_normalize_label(company_a), _normalize_label(company_b)) / 100
+
+
+def has_people_overlap(people_a: list, people_b: list) -> bool:
+    names_a = [
+        _normalize_label(person.get("name", ""))
+        for person in people_a
+        if person.get("name")
+    ]
+    names_b = [
+        _normalize_label(person.get("name", ""))
+        for person in people_b
+        if person.get("name")
+    ]
+    if not names_a or not names_b:
+        return False
+    for name_a in names_a:
+        for name_b in names_b:
+            if fuzz.token_set_ratio(name_a, name_b) / 100 >= PEOPLE_NAME_SIMILARITY_MIN:
+                return True
+    return False
 
 
 def extract_address_tokens(address: str) -> list[str]:

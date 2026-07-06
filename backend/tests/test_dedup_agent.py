@@ -7,9 +7,13 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.agent.dedup_agent import (
+    COMPANY_SIMILARITY_MIN,
     FUZZY_AUTO_MERGE,
+    PEOPLE_NAME_SIMILARITY_MIN,
     _project_payload,
+    company_similarity,
     find_candidate_pairs,
+    has_people_overlap,
     name_similarity,
     run_dedup_pass,
 )
@@ -81,6 +85,33 @@ def test_name_similarity_different_projects():
         "Entrepôt frigorifique Activimmo",
     )
     assert score < FUZZY_AUTO_MERGE
+
+
+def test_company_similarity_fuzzy_variants():
+    score = company_similarity("Carrefour Supply Chain", "Carrefour Supply")
+    assert score >= COMPANY_SIMILARITY_MIN
+
+
+def test_company_similarity_different_companies():
+    score = company_similarity("Carrefour Supply", "Amazon France Logistique")
+    assert score < COMPANY_SIMILARITY_MIN
+
+
+def test_has_people_overlap_fuzzy_match():
+    people_a = [{"name": "Lorrain Merckaert", "role": "Maire"}]
+    people_b = [{"name": "L. Merckaert", "role": None}]
+    assert has_people_overlap(people_a, people_b) is True
+
+
+def test_has_people_overlap_no_match():
+    people_a = [{"name": "Alice Martin", "role": "Directrice"}]
+    people_b = [{"name": "Bob Dupont", "role": "Maire"}]
+    assert has_people_overlap(people_a, people_b) is False
+
+
+def test_has_people_overlap_empty_lists():
+    assert has_people_overlap([], [{"name": "Alice"}]) is False
+    assert has_people_overlap([{"name": "Alice"}], []) is False
 
 
 def test_find_candidate_pairs_same_department(db_session):
