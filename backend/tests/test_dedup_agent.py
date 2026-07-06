@@ -308,49 +308,18 @@ def test_find_candidate_pairs_shared_contact_different_city_without_name_match(d
 
 
 @pytest.mark.asyncio
-async def test_run_dedup_pass_auto_merges_same_siren_same_city(db_session):
+async def test_run_dedup_pass_same_company_different_city_goes_to_llm(db_session):
     run = Run(status="in_progress")
     kept = Project(
         name="Plateforme logistique Carrefour Supply",
-        siren="451321335",
+        company="Carrefour Supply Chain",
         city="Vénissieux",
         department="69 - Rhône",
         match_key="a|b",
     )
     absorbed = Project(
         name="Nouveau hub e-commerce",
-        siren="451321335",
-        city="Vénissieux",
-        department="69 - Rhône",
-        match_key="c|d",
-    )
-    db_session.add_all([run, kept, absorbed])
-    db_session.commit()
-
-    llm_mock = AsyncMock(return_value=(False, ""))
-    with patch("app.agent.dedup_agent.ask_llm_same_project", new=llm_mock):
-        events = await run_dedup_pass(db_session, run, ["69"])
-
-    db_session.refresh(absorbed)
-    assert len(events) == 1
-    assert events[0]["method"] == "siren"
-    assert absorbed.merged_into_id == kept.id
-    llm_mock.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_run_dedup_pass_same_siren_different_city_goes_to_llm(db_session):
-    run = Run(status="in_progress")
-    kept = Project(
-        name="Plateforme logistique Carrefour Supply",
-        siren="451321335",
-        city="Vénissieux",
-        department="69 - Rhône",
-        match_key="a|b",
-    )
-    absorbed = Project(
-        name="Nouveau hub e-commerce",
-        siren="451321335",
+        company="Carrefour Supply",
         city="Corbas",
         department="69 - Rhône",
         match_key="c|d",
@@ -363,6 +332,35 @@ async def test_run_dedup_pass_same_siren_different_city_goes_to_llm(db_session):
         events = await run_dedup_pass(db_session, run, ["69"])
 
     assert events == []
+    llm_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_run_dedup_pass_shared_contact_goes_to_llm(db_session):
+    run = Run(status="in_progress")
+    kept = Project(
+        name="Rénovation centre Sourderie",
+        city="Montigny-le-Bretonneux",
+        department="78 - Yvelines",
+        people=[{"name": "Lorrain Merckaert", "role": "Maire"}],
+        match_key="a|b",
+    )
+    absorbed = Project(
+        name="Extension parc activités",
+        city="Trappes",
+        department="78 - Yvelines",
+        people=[{"name": "L. Merckaert", "role": "Élu"}],
+        match_key="c|d",
+    )
+    db_session.add_all([run, kept, absorbed])
+    db_session.commit()
+
+    llm_mock = AsyncMock(return_value=(True, "Même opération citée par le maire"))
+    with patch("app.agent.dedup_agent.ask_llm_same_project", new=llm_mock):
+        events = await run_dedup_pass(db_session, run, ["78"])
+
+    assert len(events) == 1
+    assert events[0]["method"] == "llm"
     llm_mock.assert_awaited_once()
 
 

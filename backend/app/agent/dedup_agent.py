@@ -183,24 +183,6 @@ def _same_city(city_a: str | None, city_b: str | None) -> bool:
     return slugify(city_a) == slugify(city_b)
 
 
-def _same_department(dept_a: str | None, dept_b: str | None) -> bool:
-    if not dept_a or not dept_b:
-        return False
-    return dept_a.strip().lower() == dept_b.strip().lower()
-
-
-def _same_company(company_a: str | None, company_b: str | None) -> bool:
-    if not company_a or not company_b:
-        return False
-    return slugify(company_a) == slugify(company_b)
-
-
-def _same_siren(siren_a: str | None, siren_b: str | None) -> bool:
-    a = (siren_a or "").strip()
-    b = (siren_b or "").strip()
-    return bool(a) and a == b
-
-
 def _department_matches(
     project_department: str | None,
     target_label: str,
@@ -220,7 +202,7 @@ def _should_auto_merge_company_city(
     name_score: float,
 ) -> bool:
     return (
-        _same_company(kept.company, absorbed.company)
+        company_similarity(kept.company, absorbed.company) >= COMPANY_SIMILARITY_MIN
         and _same_city(kept.city, absorbed.city)
         and has_brand_overlap(kept.name, absorbed.name)
         and name_score >= COMPANY_CITY_AUTO_MERGE
@@ -373,8 +355,6 @@ def _auto_merge_reason(
     name_score: float,
     address_score: float,
 ) -> str:
-    if _same_siren(kept.siren, absorbed.siren) and _same_city(kept.city, absorbed.city):
-        return f"Même SIREN ({kept.siren}) et même commune"
     if address_score >= ADDRESS_AUTO_MERGE:
         return f"Adresses très similaires (score adresse {address_score:.0%})"
     if _should_auto_merge_company_city(kept, absorbed, name_score=name_score):
@@ -530,19 +510,19 @@ async def run_dedup_pass(
                 name_score = name_similarity(kept.name, absorbed.name)
                 address_score = address_similarity(kept.address, absorbed.address)
                 address_overlap = has_address_overlap(kept.address, absorbed.address)
-
-                siren_auto_merge = _same_siren(kept.siren, absorbed.siren) and _same_city(
-                    kept.city, absorbed.city
+                company_score = company_similarity(kept.company, absorbed.company)
+                people_overlap = has_people_overlap(
+                    kept.people or [], absorbed.people or []
                 )
+
                 should_merge = (
-                    siren_auto_merge
-                    or score >= FUZZY_AUTO_MERGE
+                    score >= FUZZY_AUTO_MERGE
                     or address_score >= ADDRESS_AUTO_MERGE
                     or _should_auto_merge_company_city(
                         kept, absorbed, name_score=name_score
                     )
                 )
-                method = "siren" if siren_auto_merge else "fuzzy"
+                method = "fuzzy"
                 merge_reason = ""
                 if should_merge:
                     merge_reason = _auto_merge_reason(
@@ -557,7 +537,8 @@ async def run_dedup_pass(
                     or has_brand_overlap(kept.name, absorbed.name)
                     or address_score >= ADDRESS_CANDIDATE_MIN
                     or address_overlap
-                    or _same_siren(kept.siren, absorbed.siren)
+                    or company_score >= COMPANY_SIMILARITY_MIN
+                    or people_overlap
                 ):
                     cached = get_cached_verdict(session, kept, absorbed)
                     if cached is not None:
