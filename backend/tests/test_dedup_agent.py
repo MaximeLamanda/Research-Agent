@@ -240,17 +240,17 @@ async def test_run_dedup_pass_uses_llm_for_ambiguous_pairs(db_session):
     assert events[0]["method"] == "llm"
 
 
-def test_find_candidate_pairs_same_siren_same_department_without_name_match(db_session):
+def test_find_candidate_pairs_same_company_different_city_without_name_match(db_session):
     project_a = Project(
         name="Plateforme XXL Nord Isère",
-        siren="552100554",
+        company="Carrefour Supply Chain",
         city="Bourgoin-Jallieu",
         department="38 - Isère",
         match_key="a|b",
     )
     project_b = Project(
         name="Site industriel Grand Angle",
-        siren="552100554",
+        company="Carrefour Supply",
         city="Ruy-Montceau",
         department="38 - Isère",
         match_key="c|d",
@@ -262,17 +262,17 @@ def test_find_candidate_pairs_same_siren_same_department_without_name_match(db_s
     assert len(pairs) == 1
 
 
-def test_find_candidate_pairs_same_siren_different_department_no_pair(db_session):
+def test_find_candidate_pairs_different_company_no_other_signal(db_session):
     project_a = Project(
         name="Plateforme XXL Nord Isère",
-        siren="552100554",
+        company="Carrefour Supply",
         city="Bourgoin-Jallieu",
         department="38 - Isère",
         match_key="a|b",
     )
     project_b = Project(
         name="Site industriel Grand Angle",
-        siren="552100554",
+        company="Amazon France Logistique",
         city="Lyon",
         department="69 - Rhône",
         match_key="c|d",
@@ -282,6 +282,29 @@ def test_find_candidate_pairs_same_siren_different_department_no_pair(db_session
 
     pairs = find_candidate_pairs([project_a, project_b])
     assert pairs == []
+
+
+def test_find_candidate_pairs_shared_contact_different_city_without_name_match(db_session):
+    contact = [{"name": "Lorrain Merckaert", "role": "Maire"}]
+    project_a = Project(
+        name="Rénovation centre Sourderie",
+        city="Montigny-le-Bretonneux",
+        department="78 - Yvelines",
+        people=contact,
+        match_key="a|b",
+    )
+    project_b = Project(
+        name="Extension parc activités",
+        city="Trappes",
+        department="78 - Yvelines",
+        people=[{"name": "L. Merckaert", "role": "Élu"}],
+        match_key="c|d",
+    )
+    db_session.add_all([project_a, project_b])
+    db_session.commit()
+
+    pairs = find_candidate_pairs([project_a, project_b])
+    assert len(pairs) == 1
 
 
 @pytest.mark.asyncio

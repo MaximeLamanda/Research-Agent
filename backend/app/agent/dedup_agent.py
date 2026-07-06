@@ -249,6 +249,10 @@ def find_candidate_pairs(projects: list[Project]) -> list[tuple[Project, Project
             brand_overlap = has_brand_overlap(project_a.name, project_b.name)
             address_score = address_similarity(project_a.address, project_b.address)
             address_overlap = has_address_overlap(project_a.address, project_b.address)
+            company_score = company_similarity(project_a.company, project_b.company)
+            people_overlap = has_people_overlap(
+                project_a.people or [], project_b.people or []
+            )
 
             name_match = name_score >= FUZZY_CANDIDATE_MIN or brand_overlap
             address_match = (
@@ -256,20 +260,16 @@ def find_candidate_pairs(projects: list[Project]) -> list[tuple[Project, Project
                 or address_overlap
                 or address_score >= ADDRESS_AUTO_MERGE
             )
+            company_match = company_score >= COMPANY_SIMILARITY_MIN
+            people_match = people_overlap
 
-            siren_match = _same_siren(project_a.siren, project_b.siren)
-            siren_candidate = siren_match and (
-                _same_department(project_a.department, project_b.department)
-                or _same_city(project_a.city, project_b.city)
-            )
-
-            if not name_match and not address_match and not siren_candidate:
+            if not name_match and not address_match and not company_match and not people_match:
                 continue
 
             same_city = _same_city(project_a.city, project_b.city)
 
-            # Candidature par nom : même commune, sauf preuve par l'adresse ou le SIREN.
-            if name_match and not address_match and not same_city and not siren_match:
+            # Candidature par nom : même commune, sauf preuve par l'adresse.
+            if name_match and not address_match and not same_city:
                 continue
 
             pair_score = _pair_match_score(
