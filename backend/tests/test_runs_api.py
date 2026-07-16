@@ -58,7 +58,7 @@ def test_trigger_run_snapshots_config_settings(client, db_session):
     if config is None:
         config = Config(departments=[])
         db_session.add(config)
-    config.geographical_granularity = "city_focus"
+    config.geographical_granularity = "large"
     config.exa_search_type = "neural"
     config.exa_category = "company"
     db_session.commit()
@@ -68,7 +68,7 @@ def test_trigger_run_snapshots_config_settings(client, db_session):
 
     assert response.status_code == 202
     body = response.json()
-    assert body["geographical_granularity"] == "city_focus"
+    assert body["geographical_granularity"] == "large"
     assert body["exa_search_type"] == "neural"
     assert body["exa_category"] == "company"
 
@@ -124,6 +124,36 @@ def test_trigger_run_dedup(client, db_session):
     assert body["scope"] == "run"
     assert body["targets"] == [{"country": "DE", "departments": ["BW"]}]
     execute_dedup.assert_called_once()
+
+
+def test_stop_run(client, db_session):
+    run = Run(status="in_progress", mode="full")
+    db_session.add(run)
+    db_session.commit()
+
+    from app.api.runs import _active_run_ids
+
+    _active_run_ids.add(run.id)
+    try:
+        response = client.post(f"/api/runs/{run.id}/stop")
+        assert response.status_code == 202
+        assert response.json()["status"] == "in_progress"
+    finally:
+        _active_run_ids.discard(run.id)
+
+
+def test_stop_run_not_found(client):
+    response = client.post(f"/api/runs/{uuid.uuid4()}/stop")
+    assert response.status_code == 404
+
+
+def test_stop_run_not_in_progress(client, db_session):
+    run = Run(status="completed", mode="full")
+    db_session.add(run)
+    db_session.commit()
+
+    response = client.post(f"/api/runs/{run.id}/stop")
+    assert response.status_code == 409
 
 
 def test_trigger_run_dedup_not_found(client):

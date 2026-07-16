@@ -50,6 +50,7 @@ docs/plans/       # Documents de design et plans d'implémentation
 cp .env.example .env
 # Renseigner EXA_API_KEY et AI_GATEWAY_API_KEY
 # AI_MODEL est optionnel (défaut : deepseek/deepseek-v4-flash)
+# AI_PREFILTER_MODEL est optionnel (défaut : openai/gpt-4o-mini)
 ```
 
 ### Option A — Docker (recommandé)
@@ -83,6 +84,7 @@ cd frontend && npm install && npm run dev
 | `EXA_API_KEY` | Clé API Exa.ai (recherche d'articles) — **requis** |
 | `AI_GATEWAY_API_KEY` | Clé Vercel AI Gateway (extraction LLM) — **requis** |
 | `AI_MODEL` | Modèle LLM (défaut : `deepseek/deepseek-v4-flash`) |
+| `AI_PREFILTER_MODEL` | Modèle LLM du préfiltre d'URLs en batch (défaut : `openai/gpt-4o-mini`) |
 | `DATABASE_URL` | PostgreSQL ou SQLite (défaut Docker : PostgreSQL du compose) |
 | `NEXT_PUBLIC_API_URL` | URL de l'API vue par le frontend |
 | `GIS_DATABASE_URL` | Base BDNB/OSM locale pour le module GIS — optionnel |

@@ -3,6 +3,20 @@ from urllib.parse import urlparse
 BLOCKED_ROOT_DOMAINS = frozenset(
     {
         "basedespermis.fr",
+        # Fermes SEO chinoises récurrentes dans les runs Exa (sous-domaines aléatoires).
+        "kuailejiaju.com",
+        "kingslandjustice.com",
+        "dapusi.com",
+        "jiachuangip.com",
+        "yvelinesinfos.com",
+        "hfai64.com",
+        "losventilos.com",
+        "wrightbroscustoms.com",
+        "dropdeadgorgeousrock.com",
+        "angelcrestgardens.com",
+        "shirumonovideo.com",
+        "vcfxglobal.cn",
+        "iaanhughes.com",
     }
 )
 

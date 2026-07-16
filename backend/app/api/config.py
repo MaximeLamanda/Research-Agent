@@ -8,12 +8,32 @@ from app.db.session import get_db
 
 router = APIRouter(prefix="/api/config", tags=["config"])
 
+GEOGRAPHICAL_GRANULARITY_LARGE = "large"
+
+
+def normalize_config(config: Config) -> bool:
+    """Applique les valeurs supportées (city_focus retiré, deep → auto)."""
+    changed = False
+    if config.geographical_granularity != GEOGRAPHICAL_GRANULARITY_LARGE:
+        config.geographical_granularity = GEOGRAPHICAL_GRANULARITY_LARGE
+        changed = True
+    if config.region_cities:
+        config.region_cities = {}
+        changed = True
+    if config.exa_search_type == "deep":
+        config.exa_search_type = "auto"
+        changed = True
+    return changed
+
 
 def get_or_create_config(db: Session) -> Config:
     config = db.query(Config).first()
     if config is None:
         config = Config(departments=[])
         db.add(config)
+        db.commit()
+        db.refresh(config)
+    elif normalize_config(config):
         db.commit()
         db.refresh(config)
     return config
@@ -54,8 +74,11 @@ def read_config(db: Session = Depends(get_db)):
 def update_config(payload: ConfigUpdate, db: Session = Depends(get_db)):
     config = get_or_create_config(db)
     data = payload.model_dump(exclude_unset=True)
+    data.pop("geographical_granularity", None)
+    data.pop("region_cities", None)
     for key, value in data.items():
         setattr(config, key, value)
+    normalize_config(config)
     db.commit()
     db.refresh(config)
     return config_to_read(config)

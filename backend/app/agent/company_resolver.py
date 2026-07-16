@@ -3,6 +3,7 @@ import time
 from collections.abc import Awaitable, Callable
 
 import httpx
+from pydantic import ValidationError
 
 from app.agent.entreprise_client import CompanyCandidate
 from app.agent.llm_extractor import parse_json_content
@@ -77,9 +78,15 @@ class CompanyResolver:
                 {"company": company_name, "candidate_count": len(candidates)},
             )
         started = time.monotonic()
-        content = await self._call_llm(json.dumps(payload, ensure_ascii=False))
-        data = parse_json_content(content)
-        resolution = CompanyResolution.model_validate(data)
+        try:
+            content = await self._call_llm(json.dumps(payload, ensure_ascii=False))
+            data = parse_json_content(content)
+            resolution = CompanyResolution.model_validate(data)
+        except (json.JSONDecodeError, ValidationError) as exc:
+            resolution = CompanyResolution(
+                matched=False,
+                reason=f"Réponse LLM invalide : {exc}",
+            )
         if step_logger:
             await step_logger(
                 "llm_company_resolve_done",

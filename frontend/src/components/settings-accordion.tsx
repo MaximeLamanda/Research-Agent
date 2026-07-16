@@ -2,7 +2,6 @@
 
 import { DatePickerWithRange } from "@/components/date-range-picker";
 import { DepartmentCombobox } from "@/components/department-combobox";
-import { RegionCitiesCombobox } from "@/components/region-cities-combobox";
 import {
   Accordion,
   AccordionContent,
@@ -21,10 +20,6 @@ import {
 import { COUNTRIES } from "@/data/countries";
 import { useAgentSettings } from "@/hooks/use-agent-settings";
 import {
-  GEOGRAPHICAL_GRANULARITY_CITY_FOCUS,
-  GEOGRAPHICAL_GRANULARITY_OPTIONS,
-} from "@/lib/geographical-granularity";
-import {
   PUBLISHED_DATE_PRESET_CUSTOM,
   PUBLISHED_DATE_PRESETS,
   type PublishedDatePreset,
@@ -35,7 +30,6 @@ const EXA_SEARCH_TYPES = [
   { value: "neural", label: "Neural" },
   { value: "keyword", label: "Keyword" },
   { value: "fast", label: "Fast" },
-  { value: "deep", label: "Deep" },
 ] as const;
 
 const EXA_CATEGORIES = [
@@ -60,8 +54,6 @@ export function SettingsAccordion({ settings }: SettingsAccordionProps) {
     setCountry,
     selected,
     setSelected,
-    regionCities,
-    setRegionCities,
     exaSearchType,
     setExaSearchType,
     exaCategory,
@@ -72,8 +64,6 @@ export function SettingsAccordion({ settings }: SettingsAccordionProps) {
     setExaStartPublishedDate,
     exaEndPublishedDate,
     setExaEndPublishedDate,
-    geographicalGranularity,
-    setGeographicalGranularity,
     loading,
     loadConfig,
     markDirty,
@@ -205,51 +195,24 @@ export function SettingsAccordion({ settings }: SettingsAccordionProps) {
                     </SelectContent>
                   </Select>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="geographical-granularity">Geographical granularity</Label>
-                  <Select
-                    value={geographicalGranularity}
-                    onValueChange={(value) => {
-                      if (value) {
-                        setGeographicalGranularity(value as typeof geographicalGranularity);
-                      }
-                    }}
-                  >
-                    <SelectTrigger id="geographical-granularity" className="w-full">
-                      <SelectValue placeholder="Choose granularity" />
-                    </SelectTrigger>
-                    <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
-                      {GEOGRAPHICAL_GRANULARITY_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
 
               <div className="space-y-2">
-                <Label>{country === "DE" ? "Länder" : "Régions"}</Label>
+                <Label>
+                  {country === "DE"
+                    ? "Länder"
+                    : country === "GB"
+                      ? "Regions"
+                      : country === "IE"
+                        ? "Provinces"
+                        : "Régions"}
+                </Label>
                 <DepartmentCombobox
                   country={country}
                   value={selected}
                   onChange={setSelected}
                 />
               </div>
-
-              {geographicalGranularity === GEOGRAPHICAL_GRANULARITY_CITY_FOCUS ? (
-                <div className="space-y-2">
-                  <Label>{country === "DE" ? "Städte" : "Villes"}</Label>
-                  <RegionCitiesCombobox
-                    country={country}
-                    selectedRegionCodes={selected}
-                    value={regionCities}
-                    onChange={setRegionCities}
-                  />
-                </div>
-              ) : null}
 
               <div className="flex justify-center">
                 <Button variant="outline" size="sm" onClick={handleSave} disabled={loading}>

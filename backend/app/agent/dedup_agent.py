@@ -8,10 +8,15 @@ from collections.abc import Awaitable, Callable
 
 from rapidfuzz import fuzz
 from slugify import slugify
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.agent.deduplication import extract_distinctive_name_tokens, extract_name_tokens, merge_projects
+from app.agent.deduplication import (
+    extract_distinctive_name_tokens,
+    extract_name_tokens,
+    merge_projects,
+)
 from app.agent.llm_extractor import LLMExtractor, parse_json_content
 from app.data.departments import format_department, normalize_department
 from app.models.dedup_decision import DedupDecision
@@ -28,6 +33,8 @@ COMPANY_CITY_AUTO_MERGE = 0.65
 # Adresse : seuils plus bas car les libellés d'articles varient fortement (lieu-dit vs nom commercial).
 ADDRESS_AUTO_MERGE = 0.88
 ADDRESS_CANDIDATE_MIN = 0.55
+COMPANY_SIMILARITY_MIN = 0.85
+PEOPLE_NAME_SIMILARITY_MIN = 0.85
 
 _SAME_PROJECT_PROMPT = """Tu compares deux fiches projet extraites d'articles différents.
 S'agit-il du MÊME chantier physique (même site, même zone d'activité, même construction) ?
@@ -87,6 +94,37 @@ def _normalize_address(value: str) -> str:
     for char in "-_,;:/()":
         text = text.replace(char, " ")
     return " ".join(text.split())
+
+
+def _normalize_label(value: str) -> str:
+    text = unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
+    return text.lower().strip()
+
+
+def company_similarity(company_a: str | None, company_b: str | None) -> float:
+    if not company_a or not company_b:
+        return 0.0
+    return fuzz.token_set_ratio(_normalize_label(company_a), _normalize_label(company_b)) / 100
+
+
+def has_people_overlap(people_a: list, people_b: list) -> bool:
+    names_a = [
+        _normalize_label(person.get("name", ""))
+        for person in people_a
+        if person.get("name")
+    ]
+    names_b = [
+        _normalize_label(person.get("name", ""))
+        for person in people_b
+        if person.get("name")
+    ]
+    if not names_a or not names_b:
+        return False
+    for name_a in names_a:
+        for name_b in names_b:
+            if fuzz.token_set_ratio(name_a, name_b) / 100 >= PEOPLE_NAME_SIMILARITY_MIN:
+                return True
+    return False
 
 
 def extract_address_tokens(address: str) -> list[str]:
@@ -150,22 +188,40 @@ def _same_city(city_a: str | None, city_b: str | None) -> bool:
     return slugify(city_a) == slugify(city_b)
 
 
-def _same_department(dept_a: str | None, dept_b: str | None) -> bool:
-    if not dept_a or not dept_b:
+def _token_in_city_slug(token: str, city_slug: str) -> bool:
+    if not city_slug:
         return False
-    return dept_a.strip().lower() == dept_b.strip().lower()
-
-
-def _same_company(company_a: str | None, company_b: str | None) -> bool:
-    if not company_a or not company_b:
+    token_slug = slugify(token)
+    if not token_slug:
         return False
-    return slugify(company_a) == slugify(company_b)
+    return token_slug in city_slug.split("-") or city_slug.startswith(token_slug)
 
 
-def _same_siren(siren_a: str | None, siren_b: str | None) -> bool:
-    a = (siren_a or "").strip()
-    b = (siren_b or "").strip()
-    return bool(a) and a == b
+def _same_company(project_a: Project, project_b: Project) -> bool:
+    if company_similarity(project_a.company, project_b.company) >= COMPANY_SIMILARITY_MIN:
+        return True
+    for company, name in (
+        (project_a.company, project_b.name),
+        (project_b.company, project_a.name),
+    ):
+        if company and company_similarity(company, name) >= COMPANY_SIMILARITY_MIN:
+            return True
+    if project_a.company and project_b.company:
+        return False
+    if not has_brand_overlap(project_a.name, project_b.name):
+        return False
+    shared = set(extract_distinctive_name_tokens(project_a.name)) & set(
+        extract_distinctive_name_tokens(project_b.name)
+    )
+    if not shared:
+        return False
+    city_slugs = {slugify(project_a.city or ""), slugify(project_b.city or "")}
+    company_tokens = {
+        token
+        for token in shared
+        if not any(_token_in_city_slug(token, city_slug) for city_slug in city_slugs)
+    }
+    return bool(company_tokens)
 
 
 def _department_matches(
@@ -187,7 +243,7 @@ def _should_auto_merge_company_city(
     name_score: float,
 ) -> bool:
     return (
-        _same_company(kept.company, absorbed.company)
+        company_similarity(kept.company, absorbed.company) >= COMPANY_SIMILARITY_MIN
         and _same_city(kept.city, absorbed.city)
         and has_brand_overlap(kept.name, absorbed.name)
         and name_score >= COMPANY_CITY_AUTO_MERGE
@@ -216,6 +272,10 @@ def find_candidate_pairs(projects: list[Project]) -> list[tuple[Project, Project
             brand_overlap = has_brand_overlap(project_a.name, project_b.name)
             address_score = address_similarity(project_a.address, project_b.address)
             address_overlap = has_address_overlap(project_a.address, project_b.address)
+            company_score = company_similarity(project_a.company, project_b.company)
+            people_overlap = has_people_overlap(
+                project_a.people or [], project_b.people or []
+            )
 
             name_match = name_score >= FUZZY_CANDIDATE_MIN or brand_overlap
             address_match = (
@@ -223,20 +283,22 @@ def find_candidate_pairs(projects: list[Project]) -> list[tuple[Project, Project
                 or address_overlap
                 or address_score >= ADDRESS_AUTO_MERGE
             )
+            company_match = company_score >= COMPANY_SIMILARITY_MIN
+            people_match = people_overlap
 
-            siren_match = _same_siren(project_a.siren, project_b.siren)
-            siren_candidate = siren_match and (
-                _same_department(project_a.department, project_b.department)
-                or _same_city(project_a.city, project_b.city)
-            )
-
-            if not name_match and not address_match and not siren_candidate:
+            if not name_match and not address_match and not company_match and not people_match:
                 continue
 
-            same_city = _same_city(project_a.city, project_b.city)
-
-            # Candidature par nom : même commune, sauf preuve par l'adresse ou le SIREN.
-            if name_match and not address_match and not same_city and not siren_match:
+            # Candidature par nom : même commune ou même entreprise, sauf adresse ou contact.
+            if (
+                name_match
+                and not address_match
+                and not people_match
+                and not (
+                    _same_city(project_a.city, project_b.city)
+                    or _same_company(project_a, project_b)
+                )
+            ):
                 continue
 
             pair_score = _pair_match_score(
@@ -340,8 +402,6 @@ def _auto_merge_reason(
     name_score: float,
     address_score: float,
 ) -> str:
-    if _same_siren(kept.siren, absorbed.siren) and _same_city(kept.city, absorbed.city):
-        return f"Même SIREN ({kept.siren}) et même commune"
     if address_score >= ADDRESS_AUTO_MERGE:
         return f"Adresses très similaires (score adresse {address_score:.0%})"
     if _should_auto_merge_company_city(kept, absorbed, name_score=name_score):
@@ -483,6 +543,7 @@ async def run_dedup_pass(
                 .filter(
                     Project.merged_into_id.is_(None),
                     Project.department.isnot(None),
+                    func.coalesce(Project.country, country) == country,
                     Project.department.like(department_prefix),
                 )
                 .all()
@@ -497,19 +558,19 @@ async def run_dedup_pass(
                 name_score = name_similarity(kept.name, absorbed.name)
                 address_score = address_similarity(kept.address, absorbed.address)
                 address_overlap = has_address_overlap(kept.address, absorbed.address)
-
-                siren_auto_merge = _same_siren(kept.siren, absorbed.siren) and _same_city(
-                    kept.city, absorbed.city
+                company_score = company_similarity(kept.company, absorbed.company)
+                people_overlap = has_people_overlap(
+                    kept.people or [], absorbed.people or []
                 )
+
                 should_merge = (
-                    siren_auto_merge
-                    or score >= FUZZY_AUTO_MERGE
+                    score >= FUZZY_AUTO_MERGE
                     or address_score >= ADDRESS_AUTO_MERGE
                     or _should_auto_merge_company_city(
                         kept, absorbed, name_score=name_score
                     )
                 )
-                method = "siren" if siren_auto_merge else "fuzzy"
+                method = "fuzzy"
                 merge_reason = ""
                 if should_merge:
                     merge_reason = _auto_merge_reason(
@@ -524,7 +585,8 @@ async def run_dedup_pass(
                     or has_brand_overlap(kept.name, absorbed.name)
                     or address_score >= ADDRESS_CANDIDATE_MIN
                     or address_overlap
-                    or _same_siren(kept.siren, absorbed.siren)
+                    or company_score >= COMPANY_SIMILARITY_MIN
+                    or people_overlap
                 ):
                     cached = get_cached_verdict(session, kept, absorbed)
                     if cached is not None:

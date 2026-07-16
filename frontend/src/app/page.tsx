@@ -11,20 +11,36 @@ import { ColorOrb } from "@/components/ui/color-orb";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAgentSettings } from "@/hooks/use-agent-settings";
 import { useRunStream } from "@/hooks/use-run-stream";
+import { stopRun } from "@/lib/api";
 
 export default function HomePage() {
   const [runId, setRunId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [stopping, setStopping] = useState(false);
+  const [stopError, setStopError] = useState<string | null>(null);
   const settings = useAgentSettings(setRunId);
   const { active, message, stats, batches, toggleBatch } = useRunStream(runId, () =>
     setRefreshKey((k) => k + 1)
   );
 
+  async function handleStopRun() {
+    if (!runId) return;
+    setStopping(true);
+    setStopError(null);
+    try {
+      await stopRun(runId);
+    } catch (error) {
+      setStopError(error instanceof Error ? error.message : "Impossible d'arrêter le run.");
+    } finally {
+      setStopping(false);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-8 space-y-8">
-      {settings.apiError && (
+      {(settings.apiError || stopError) && (
         <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-center text-sm text-destructive">
-          {settings.apiError}
+          {settings.apiError || stopError}
         </p>
       )}
 
@@ -53,26 +69,25 @@ export default function HomePage() {
               C&I construction project monitoring — industrial, logistics, retail
             </p>
 
-            {!active && (
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Button
-                  size="xl"
-                  onClick={settings.handleRun}
-                  disabled={settings.loading || settings.selected.length === 0 || !!settings.apiError}
-                  className="min-w-48"
-                >
-                  Run now
-                </Button>
-                <Button
-                  variant="outline"
-                  size="xl"
-                  onClick={settings.handleTestRun}
-                  disabled={settings.loading || settings.selected.length === 0 || !!settings.apiError}
-                  className="min-w-48"
-                >
-                  Test (1 lien)
-                </Button>
-              </div>
+            {!active ? (
+              <Button
+                size="xl"
+                onClick={settings.handleRun}
+                disabled={settings.loading || settings.selected.length === 0 || !!settings.apiError}
+                className="min-w-48"
+              >
+                Run now
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                size="xl"
+                onClick={handleStopRun}
+                disabled={stopping}
+                className="min-w-48"
+              >
+                Arrêter
+              </Button>
             )}
 
             {!active && stats && (

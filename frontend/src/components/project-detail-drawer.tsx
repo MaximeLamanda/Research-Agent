@@ -128,7 +128,15 @@ export function ProjectDetailDrawer({
               <DetailRow label="City" value={project.city || "—"} />
               <DetailRow label="Country" value={getCountryLabel(project.country)} />
               <DetailRow
-                label={project.country === "DE" ? "Land" : "Région"}
+                label={
+                  project.country === "DE"
+                    ? "Land"
+                    : project.country === "GB"
+                      ? "Region"
+                      : project.country === "IE"
+                        ? "Province"
+                        : "Région"
+                }
                 value={
                   project.department
                     ? getRegionLabel(project.department, project.country || "FR")

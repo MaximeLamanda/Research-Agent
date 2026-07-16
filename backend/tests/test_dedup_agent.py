@@ -7,9 +7,13 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.agent.dedup_agent import (
+    COMPANY_SIMILARITY_MIN,
     FUZZY_AUTO_MERGE,
+    PEOPLE_NAME_SIMILARITY_MIN,
     _project_payload,
+    company_similarity,
     find_candidate_pairs,
+    has_people_overlap,
     name_similarity,
     run_dedup_pass,
 )
@@ -81,6 +85,33 @@ def test_name_similarity_different_projects():
         "Entrepôt frigorifique Activimmo",
     )
     assert score < FUZZY_AUTO_MERGE
+
+
+def test_company_similarity_fuzzy_variants():
+    score = company_similarity("Carrefour Supply Chain", "Carrefour Supply")
+    assert score >= COMPANY_SIMILARITY_MIN
+
+
+def test_company_similarity_different_companies():
+    score = company_similarity("Carrefour Supply", "Amazon France Logistique")
+    assert score < COMPANY_SIMILARITY_MIN
+
+
+def test_has_people_overlap_fuzzy_match():
+    people_a = [{"name": "Lorrain Merckaert", "role": "Maire"}]
+    people_b = [{"name": "L. Merckaert", "role": None}]
+    assert has_people_overlap(people_a, people_b) is True
+
+
+def test_has_people_overlap_no_match():
+    people_a = [{"name": "Alice Martin", "role": "Directrice"}]
+    people_b = [{"name": "Bob Dupont", "role": "Maire"}]
+    assert has_people_overlap(people_a, people_b) is False
+
+
+def test_has_people_overlap_empty_lists():
+    assert has_people_overlap([], [{"name": "Alice"}]) is False
+    assert has_people_overlap([{"name": "Alice"}], []) is False
 
 
 def test_find_candidate_pairs_same_department(db_session):
@@ -209,17 +240,17 @@ async def test_run_dedup_pass_uses_llm_for_ambiguous_pairs(db_session):
     assert events[0]["method"] == "llm"
 
 
-def test_find_candidate_pairs_same_siren_same_department_without_name_match(db_session):
+def test_find_candidate_pairs_same_company_different_city_without_name_match(db_session):
     project_a = Project(
         name="Plateforme XXL Nord Isère",
-        siren="552100554",
+        company="Carrefour Supply Chain",
         city="Bourgoin-Jallieu",
         department="38 - Isère",
         match_key="a|b",
     )
     project_b = Project(
         name="Site industriel Grand Angle",
-        siren="552100554",
+        company="Carrefour Supply",
         city="Ruy-Montceau",
         department="38 - Isère",
         match_key="c|d",
@@ -231,17 +262,17 @@ def test_find_candidate_pairs_same_siren_same_department_without_name_match(db_s
     assert len(pairs) == 1
 
 
-def test_find_candidate_pairs_same_siren_different_department_no_pair(db_session):
+def test_find_candidate_pairs_different_company_no_other_signal(db_session):
     project_a = Project(
         name="Plateforme XXL Nord Isère",
-        siren="552100554",
+        company="Carrefour Supply",
         city="Bourgoin-Jallieu",
         department="38 - Isère",
         match_key="a|b",
     )
     project_b = Project(
         name="Site industriel Grand Angle",
-        siren="552100554",
+        company="Amazon France Logistique",
         city="Lyon",
         department="69 - Rhône",
         match_key="c|d",
@@ -253,50 +284,113 @@ def test_find_candidate_pairs_same_siren_different_department_no_pair(db_session
     assert pairs == []
 
 
-@pytest.mark.asyncio
-async def test_run_dedup_pass_auto_merges_same_siren_same_city(db_session):
-    run = Run(status="in_progress")
-    kept = Project(
-        name="Plateforme logistique Carrefour Supply",
-        siren="451321335",
-        city="Vénissieux",
-        department="69 - Rhône",
+def test_find_candidate_pairs_shared_contact_different_city_without_name_match(db_session):
+    contact = [{"name": "Lorrain Merckaert", "role": "Maire"}]
+    project_a = Project(
+        name="Rénovation centre Sourderie",
+        city="Montigny-le-Bretonneux",
+        department="78 - Yvelines",
+        people=contact,
         match_key="a|b",
     )
-    absorbed = Project(
-        name="Nouveau hub e-commerce",
-        siren="451321335",
-        city="Vénissieux",
-        department="69 - Rhône",
+    project_b = Project(
+        name="Extension parc activités",
+        city="Trappes",
+        department="78 - Yvelines",
+        people=[{"name": "L. Merckaert", "role": "Élu"}],
         match_key="c|d",
     )
-    db_session.add_all([run, kept, absorbed])
+    db_session.add_all([project_a, project_b])
     db_session.commit()
 
-    llm_mock = AsyncMock(return_value=(False, ""))
-    with patch("app.agent.dedup_agent.ask_llm_same_project", new=llm_mock):
-        events = await run_dedup_pass(db_session, run, ["69"])
+    pairs = find_candidate_pairs([project_a, project_b])
+    assert len(pairs) == 1
 
-    db_session.refresh(absorbed)
-    assert len(events) == 1
-    assert events[0]["method"] == "siren"
-    assert absorbed.merged_into_id == kept.id
-    llm_mock.assert_not_awaited()
+
+def test_find_candidate_pairs_similar_name_same_company_different_city(db_session):
+    """Cas ARGAN : noms proches + même promoteur, villes différentes → candidat LLM."""
+    project_a = Project(
+        name="ARGAN delivers two logistics platforms to Ferrero in Normandy",
+        company="ARGAN",
+        city="Cléon and Barentin",
+        department="76 - Seine-Maritime",
+        match_key="a|b",
+    )
+    project_b = Project(
+        name="ARGAN delivers two logistics sites for FERRERO in Normandy",
+        company="ARGAN",
+        city="Cléon",
+        department="76 - Seine-Maritime",
+        match_key="c|d",
+    )
+    db_session.add_all([project_a, project_b])
+    db_session.commit()
+
+    pairs = find_candidate_pairs([project_a, project_b])
+    assert len(pairs) == 1
+    assert pairs[0][2] >= FUZZY_AUTO_MERGE
+
+
+def test_find_candidate_pairs_same_brand_different_city_labels_without_company_field(db_session):
+    """Waterstones : noms proches, même marque, villes Burton vs Burton upon Trent, pas de champ company."""
+    project_a = Project(
+        name="Waterstones new Burton warehouse",
+        city="Burton upon Trent",
+        department="UKG - West Midlands",
+        country="GB",
+        match_key="a|b",
+    )
+    project_b = Project(
+        name="Waterstones distribution centre at Indurent Park Burton",
+        city="Burton",
+        address="Indurent Park Burton",
+        department="UKG - West Midlands",
+        country="GB",
+        match_key="c|d",
+    )
+    db_session.add_all([project_a, project_b])
+    db_session.commit()
+
+    pairs = find_candidate_pairs([project_a, project_b])
+    assert len(pairs) == 1
+
+
+def test_find_candidate_pairs_name_only_rejected_without_same_city_or_company(db_session):
+    """Noms proches mais villes et entreprises différentes → pas candidat."""
+    project_a = Project(
+        name="Entrepôt logistique Nord",
+        company="DHL Supply Chain",
+        city="Lille",
+        department="59 - Nord",
+        match_key="a|b",
+    )
+    project_b = Project(
+        name="Plateforme logistique Sud",
+        company="Geodis",
+        city="Marseille",
+        department="13 - Bouches-du-Rhône",
+        match_key="c|d",
+    )
+    db_session.add_all([project_a, project_b])
+    db_session.commit()
+
+    pairs = find_candidate_pairs([project_a, project_b])
+    assert pairs == []
 
 
 @pytest.mark.asyncio
-async def test_run_dedup_pass_same_siren_different_city_goes_to_llm(db_session):
+async def test_run_dedup_pass_same_company_different_city_goes_to_llm(db_session):
     run = Run(status="in_progress")
     kept = Project(
         name="Plateforme logistique Carrefour Supply",
-        siren="451321335",
+        company="Carrefour Supply Chain",
         city="Vénissieux",
         department="69 - Rhône",
         match_key="a|b",
     )
     absorbed = Project(
         name="Nouveau hub e-commerce",
-        siren="451321335",
+        company="Carrefour Supply",
         city="Corbas",
         department="69 - Rhône",
         match_key="c|d",
@@ -309,6 +403,35 @@ async def test_run_dedup_pass_same_siren_different_city_goes_to_llm(db_session):
         events = await run_dedup_pass(db_session, run, ["69"])
 
     assert events == []
+    llm_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_run_dedup_pass_shared_contact_goes_to_llm(db_session):
+    run = Run(status="in_progress")
+    kept = Project(
+        name="Rénovation centre Sourderie",
+        city="Montigny-le-Bretonneux",
+        department="78 - Yvelines",
+        people=[{"name": "Lorrain Merckaert", "role": "Maire"}],
+        match_key="a|b",
+    )
+    absorbed = Project(
+        name="Extension parc activités",
+        city="Trappes",
+        department="78 - Yvelines",
+        people=[{"name": "L. Merckaert", "role": "Élu"}],
+        match_key="c|d",
+    )
+    db_session.add_all([run, kept, absorbed])
+    db_session.commit()
+
+    llm_mock = AsyncMock(return_value=(True, "Même opération citée par le maire"))
+    with patch("app.agent.dedup_agent.ask_llm_same_project", new=llm_mock):
+        events = await run_dedup_pass(db_session, run, ["78"])
+
+    assert len(events) == 1
+    assert events[0]["method"] == "llm"
     llm_mock.assert_awaited_once()
 
 

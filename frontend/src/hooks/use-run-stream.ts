@@ -116,6 +116,13 @@ export function useRunStream(runId: string | null, onComplete?: () => void) {
             : `Synthesis — update: ${data.name}`,
         }));
       },
+      project_imported_cross_department: (data) => {
+        applyEvent("project_imported_cross_department", data);
+        setState((s) => ({
+          ...s,
+          message: `Import cross-dépt. : ${data.name}`,
+        }));
+      },
       company_searching: (data) => {
         applyEvent("company_searching", data);
         setState((s) => ({
@@ -150,6 +157,17 @@ export function useRunStream(runId: string | null, onComplete?: () => void) {
       },
       run_completed: (data) => {
         applyEvent("run_completed", data);
+        setState({
+          active: false,
+          message: "",
+          stats: data,
+          batches: initialBatchesState(),
+        });
+        onCompleteRef.current?.();
+        source.close();
+      },
+      run_cancelled: (data) => {
+        applyEvent("run_cancelled", data);
         setState({
           active: false,
           message: "",

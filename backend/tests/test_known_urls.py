@@ -89,11 +89,19 @@ async def test_second_run_skips_persisted_non_relevant_url(db_session):
         )
     )
 
+    keep_all_prefilter = AsyncMock()
+    keep_all_prefilter.select = AsyncMock(
+        side_effect=lambda candidates, step_logger=None: {
+            c["url"]: (True, "") for c in candidates
+        }
+    )
+
     with (
         patch("app.agent.pipeline.get_or_create_config", return_value=config),
         patch("app.agent.pipeline.ExaClient") as exa_cls,
         patch("app.agent.pipeline.LLMExtractor", return_value=fake_extraction),
-        patch("app.agent.pipeline.run_dedup_pass", new_callable=AsyncMock),
+        patch("app.agent.pipeline.UrlPrefilter", return_value=keep_all_prefilter),
+        patch("app.agent.dedup_service.run_dedup_for_run", new_callable=AsyncMock),
         patch("app.agent.pipeline.emit_event", new_callable=AsyncMock),
     ):
         exa = exa_cls.return_value

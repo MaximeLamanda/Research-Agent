@@ -18,3 +18,15 @@ def test_search_anchors_germany_land():
     response = client.get("/api/search-anchors", params={"country": "DE", "codes": ["NW"]})
     assert response.status_code == 200
     assert "Köln" in response.json()["NW"]["cities"]
+
+
+def test_search_anchors_gb_london():
+    response = client.get("/api/search-anchors", params={"country": "GB", "codes": ["UKI"]})
+    assert response.status_code == 200
+    assert response.json()["UKI"]["cities"][0] == "London"
+
+
+def test_search_anchors_ie_leinster():
+    response = client.get("/api/search-anchors", params={"country": "IE", "codes": ["LE"]})
+    assert response.status_code == 200
+    assert "Dublin" in response.json()["LE"]["cities"]

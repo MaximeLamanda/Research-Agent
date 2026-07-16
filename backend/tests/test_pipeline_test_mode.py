@@ -7,6 +7,16 @@ from app.models.config import Config
 from app.models.run import Run
 
 
+def _keep_all_prefilter():
+    prefilter = AsyncMock()
+    prefilter.select = AsyncMock(
+        side_effect=lambda candidates, step_logger=None: {
+            c["url"]: (True, "") for c in candidates
+        }
+    )
+    return prefilter
+
+
 @pytest.mark.asyncio
 async def test_test_single_mode_fails_when_no_relevant_article(db_session):
     config = Config(
@@ -35,7 +45,8 @@ async def test_test_single_mode_fails_when_no_relevant_article(db_session):
         patch("app.agent.pipeline.get_or_create_config", return_value=config),
         patch("app.agent.pipeline.ExaClient") as exa_cls,
         patch("app.agent.pipeline.LLMExtractor", return_value=fake_extraction),
-        patch("app.agent.pipeline.run_dedup_pass", new_callable=AsyncMock) as dedup,
+        patch("app.agent.pipeline.UrlPrefilter", return_value=_keep_all_prefilter()),
+        patch("app.agent.dedup_service.run_dedup_for_run", new_callable=AsyncMock) as dedup,
         patch("app.agent.pipeline.emit_event", new_callable=AsyncMock),
     ):
         exa = exa_cls.return_value
@@ -94,7 +105,8 @@ async def test_test_single_mode_succeeds_with_relevant_article(db_session):
         patch("app.agent.pipeline.get_or_create_config", return_value=config),
         patch("app.agent.pipeline.ExaClient") as exa_cls,
         patch("app.agent.pipeline.LLMExtractor", return_value=fake_extraction),
-        patch("app.agent.pipeline.run_dedup_pass", new_callable=AsyncMock) as dedup,
+        patch("app.agent.pipeline.UrlPrefilter", return_value=_keep_all_prefilter()),
+        patch("app.agent.dedup_service.run_dedup_for_run", new_callable=AsyncMock) as dedup,
         patch("app.agent.pipeline.emit_event", new_callable=AsyncMock),
     ):
         exa = exa_cls.return_value

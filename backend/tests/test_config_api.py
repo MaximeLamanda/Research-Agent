@@ -10,15 +10,24 @@ def test_get_and_update_config(client):
 
     response = client.put(
         "/api/config",
-        json={"geographical_granularity": "city_focus"},
+        json={"geographical_granularity": "city_focus", "exa_search_type": "deep"},
     )
     assert response.status_code == 200
-    assert response.json()["geographical_granularity"] == "city_focus"
+    assert response.json()["geographical_granularity"] == "large"
+    assert response.json()["exa_search_type"] == "auto"
 
     response = client.put("/api/config", json={"country": "DE", "departments": ["BY", "NW"]})
     assert response.status_code == 200
     assert response.json()["country"] == "DE"
     assert response.json()["departments"] == ["BY", "NW"]
+
+    response = client.put(
+        "/api/config",
+        json={"country": "GB", "departments": ["UKI", "UKD"]},
+    )
+    assert response.status_code == 200
+    assert response.json()["country"] == "GB"
+    assert response.json()["departments"] == ["UKI", "UKD"]
 
     response = client.put("/api/config", json={"departments": ["69", "01"]})
     assert response.status_code == 200
@@ -53,4 +62,4 @@ def test_get_and_update_config(client):
         json={"region_cities": {"69": ["Lyon", "Villeurbanne"]}},
     )
     assert response.status_code == 200
-    assert response.json()["region_cities"] == {"69": ["Lyon", "Villeurbanne"]}
+    assert response.json()["region_cities"] == {}

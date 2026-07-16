@@ -172,8 +172,12 @@ export function getSearchAnchors(country: string, codes?: string[]) {
   return request<Record<string, RegionAnchor>>(`/api/search-anchors?${params.toString()}`);
 }
 
-export function getProjects() {
-  return request<Project[]>("/api/projects");
+export function getProjects(params?: { departments?: string[]; country?: string }) {
+  const search = new URLSearchParams();
+  params?.departments?.forEach((d) => search.append("departments", d));
+  if (params?.country) search.set("country", params.country);
+  const qs = search.toString();
+  return request<Project[]>(`/api/projects${qs ? `?${qs}` : ""}`);
 }
 
 export function getProject(projectId: string) {
@@ -212,6 +216,10 @@ export function triggerRun(mode: "full" | "test_single" = "full") {
   return request<Run>("/api/runs", { method: "POST", body: JSON.stringify({ mode }) });
 }
 
+export function stopRun(runId: string) {
+  return request<Run>(`/api/runs/${runId}/stop`, { method: "POST" });
+}
+
 export interface RunDedupResponse {
   run_id: string;
   status: "started";
@@ -227,8 +235,4 @@ export function triggerRunDedup(
     method: "POST",
     body: JSON.stringify(options ?? {}),
   });
-}
-
-export function triggerTestRun() {
-  return triggerRun("test_single");
 }

@@ -10,15 +10,16 @@ from sqlalchemy.orm import Session
 from app.agent.blocked_domains import exa_exclude_domains, is_blocked_url
 from app.agent.company_resolver import CompanyResolver
 from app.agent.deduplication import upsert_project
-from app.agent.dedup_agent import run_dedup_pass
 from app.agent.entreprise_client import EntrepriseClient, extract_dept_code
 from app.agent.schemas import CompanyResolution, ProjectExtraction
-from app.data.departments import department_name, ensure_department, format_department, normalize_department
-from app.data.search_anchors_loader import anchor_segment_for_cities
+from app.agent.department_resolution import resolve_extraction_department
+from app.data.departments import department_name, format_department, normalize_department
 from app.agent.exa_client import ExaClient, parse_exa_published_date, published_dates_by_url
 from app.agent.published_date_presets import resolve_published_date_range
+from app.agent.locale_filter import exa_user_location_for_country, is_likely_foreign_candidate
 from app.agent.llm_extractor import LLMExtractor
 from app.agent.queries import SECTOR_QUERIES_BY_COUNTRY
+from app.agent.url_prefilter import UrlPrefilter
 from app.api.config import get_or_create_config
 from app.config import settings
 from app.models.run import Run
@@ -26,15 +27,43 @@ from app.models.run_step import RunStep
 from app.agent.known_urls import load_known_urls, mark_url_seen
 
 _run_events: dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
+_cancelled_run_ids: set[str] = set()
+
+
+class RunCancelled(Exception):
+    pass
+
+
+def request_run_cancel(run_id: uuid.UUID) -> None:
+    _cancelled_run_ids.add(str(run_id))
+
+
+def is_run_cancelled(run_id: uuid.UUID) -> bool:
+    return str(run_id) in _cancelled_run_ids
+
+
+def clear_run_cancel(run_id: uuid.UUID) -> None:
+    _cancelled_run_ids.discard(str(run_id))
+
+
+def check_run_cancelled(run_id: uuid.UUID) -> None:
+    if is_run_cancelled(run_id):
+        raise RunCancelled()
+
+EXA_NUM_RESULTS = 25
+MAX_FETCH_PER_SEARCH = 10
 
 _STEP_MESSAGES = {
     "run_started": "Run démarré",
     "searching": "Recherche articles — {sector} (dept. {department})",
     "exa_search_start": "Exa — lancement recherche ({sector}, dept. {department})",
     "exa_search_done": "Exa — {result_count} résultat(s) en {duration_ms} ms",
+    "prefilter_start": "Préfiltre LLM — {candidate_count} candidat(s)",
+    "prefilter_done": "Préfiltre LLM — {kept_count} retenu(s), {rejected_count} rejeté(s) en {duration_ms} ms",
+    "prefilter_failed": "Préfiltre LLM indisponible — fallback top {fallback_count}",
     "exa_fetch_start": "Exa — récupération de {url_count} URL(s)",
     "exa_fetch_done": "Exa — {fetched_count} article(s) récupéré(s) en {duration_ms} ms",
-    "article_skipped": "Article ignoré ({reason}) : {title}",
+    "article_skipped": "Article ignoré ({reason}){detail_suffix} : {title}",
     "extracting": "Analyse article : {title}",
     "llm_extract_start": "LLM — extraction démarrée ({model})",
     "llm_extract_done": "LLM — extraction terminée en {duration_ms} ms (pertinent={is_relevant})",
@@ -47,12 +76,14 @@ _STEP_MESSAGES = {
     "company_resolved": "SIREN identifié : {siren} ({company_legal_name})",
     "company_skipped": "SIREN non identifié : {reason}",
     "project_found": "Projet traité : {name}",
+    "project_imported_cross_department": "Import cross-dépt. ({extracted_department}) : {name}",
     "deduplicating": "Consolidation des doublons…",
     "llm_dedup_start": "LLM — comparaison doublons : {project_a} vs {project_b}",
     "llm_dedup_done": "LLM — comparaison doublons en {duration_ms} ms (same={same_project}){reason_suffix}",
     "project_merged": "Fusion : {absorbed_name} → {kept_name}",
     "run_completed": "Run terminé",
     "run_failed": "Run échoué : {error}",
+    "run_cancelled": "Run arrêté par l'utilisateur",
 }
 
 StepLogger = Callable[[str, dict | None, int | None], Awaitable[None]]
@@ -72,6 +103,11 @@ def step_message(event: str, data: dict | None) -> str:
     if event == "llm_dedup_done":
         reason = str(data.get("reason") or "").strip()
         data["reason_suffix"] = f" — {reason}" if reason else ""
+    if event == "article_skipped" and data.get("reason") == "prefiltered":
+        detail = str(data.get("prefilter_reason") or "").strip()
+        data["detail_suffix"] = f" — {detail}" if detail else ""
+    elif event == "article_skipped":
+        data["detail_suffix"] = ""
     template = _STEP_MESSAGES.get(event, event)
     try:
         return template.format(**data)
@@ -125,12 +161,16 @@ async def _emit_article_skipped(
     url: str,
     title: str,
     reason: str,
+    extra: dict | None = None,
 ) -> None:
+    payload = {"url": url, "title": title, "reason": reason}
+    if extra:
+        payload.update(extra)
     await log_and_emit(
         session,
         run_id,
         "article_skipped",
-        {"url": url, "title": title, "reason": reason},
+        payload,
     )
 
 
@@ -260,6 +300,7 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
 
     exa = ExaClient(settings.exa_api_key)
     llm = LLMExtractor()
+    prefilter = UrlPrefilter()
 
     known_urls = load_known_urls(session)
 
@@ -271,25 +312,20 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
         sectors = config.sectors[:1] if test_single else config.sectors
 
         for department in departments:
+            check_run_cancelled(run_id)
             for sector in sectors:
+                check_run_cancelled(run_id)
                 query_template = sector_queries.get(sector)
                 if not query_template:
                     continue
 
                 dept_label = format_department(department, country) or department
                 dept_name = department_name(department, country) or department
-                region_cities_map = config.region_cities or {}
-                if (config.geographical_granularity or "large") == "city_focus":
-                    selected_cities = region_cities_map.get(department) or []
-                else:
-                    selected_cities = []
-                anchor_segment = anchor_segment_for_cities(selected_cities, country)
                 query = query_template.format(
                     dept=department,
                     dept_code=department,
                     dept_label=dept_label,
                     dept_name=dept_name,
-                    anchor_segment=anchor_segment,
                 )
                 await log_and_emit(
                     session,
@@ -301,7 +337,12 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
                 try:
                     await step_logger(
                         "exa_search_start",
-                        {"department": department, "sector": sector, "query": query},
+                        {
+                            "department": department,
+                            "sector": sector,
+                            "query": query,
+                            "user_location": exa_user_location_for_country(country),
+                        },
                     )
                     search_started = time.monotonic()
                     effective_start, effective_end = resolve_published_date_range(
@@ -311,7 +352,7 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
                     )
                     search_results = await exa.search(
                         query,
-                        num_results=10,
+                        num_results=EXA_NUM_RESULTS,
                         search_type=config.exa_search_type,
                         category=config.exa_category or None,
                         start_published_date=(
@@ -320,16 +361,26 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
                         end_published_date=(
                             effective_end.isoformat() if effective_end else None
                         ),
+                        user_location=exa_user_location_for_country(country),
                         exclude_domains=exa_exclude_domains(config.exa_category or None),
                     )
+                    visible_results = [
+                        r
+                        for r in search_results
+                        if r.get("url")
+                        and not is_blocked_url(r["url"])
+                        and r["url"] not in known_urls
+                    ]
                     await step_logger(
                         "exa_search_done",
                         {
                             "department": department,
                             "sector": sector,
                             "query": query,
+                            "user_location": exa_user_location_for_country(country),
                             "result_count": len(search_results),
-                            "results": _exa_search_results_payload(search_results),
+                            "suppressed_count": len(search_results) - len(visible_results),
+                            "results": _exa_search_results_payload(visible_results),
                         },
                         duration_ms=int((time.monotonic() - search_started) * 1000),
                     )
@@ -365,12 +416,87 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
                 if not new_urls:
                     continue
 
+                candidates = []
+                for url in new_urls:
+                    result = search_by_url.get(url) or {}
+                    title = result.get("title") or url
+                    highlights = result.get("highlights") or []
+                    snippet = highlights[0] if highlights and isinstance(highlights[0], str) else ""
+                    if is_likely_foreign_candidate(title, snippet, url, country=country):
+                        mark_url_seen(session, url, "foreign_locale", run_id)
+                        known_urls.add(url)
+                        session.commit()
+                        await _emit_article_skipped(
+                            session,
+                            run_id,
+                            url=url,
+                            title=title,
+                            reason="foreign_locale",
+                        )
+                        continue
+                    candidates.append(
+                        {
+                            "url": url,
+                            "title": title,
+                            "snippet": snippet,
+                            "published_at": result.get("publishedDate"),
+                            "score": result.get("score"),
+                        }
+                    )
+
+                if not candidates:
+                    continue
+
+                try:
+                    decisions = await prefilter.select(
+                        candidates, step_logger=step_logger, country=country
+                    )
+                except Exception as exc:
+                    decisions = None  # fallback : tout garder, ordre Exa
+                    await step_logger(
+                        "prefilter_failed",
+                        {
+                            "fallback_count": min(len(new_urls), MAX_FETCH_PER_SEARCH),
+                            "error": str(exc),
+                        },
+                    )
+
+                if decisions is None:
+                    kept_urls = new_urls[:MAX_FETCH_PER_SEARCH]
+                else:
+                    kept, rejected = [], []
+                    for candidate in candidates:
+                        fetch_flag, _reason = decisions.get(candidate["url"], (True, ""))
+                        (kept if fetch_flag else rejected).append(candidate)
+                    for candidate in rejected:
+                        _, prefilter_reason = decisions.get(candidate["url"], (True, ""))
+                        mark_url_seen(session, candidate["url"], "prefiltered", run_id)
+                        known_urls.add(candidate["url"])
+                        await _emit_article_skipped(
+                            session,
+                            run_id,
+                            url=candidate["url"],
+                            title=candidate["title"],
+                            reason="prefiltered",
+                            extra=(
+                                {"prefilter_reason": prefilter_reason}
+                                if prefilter_reason
+                                else None
+                            ),
+                        )
+                    session.commit()
+                    kept.sort(key=lambda c: c.get("score") or 0.0, reverse=True)
+                    kept_urls = [c["url"] for c in kept[:MAX_FETCH_PER_SEARCH]]
+
+                if not kept_urls:
+                    continue
+
                 published_by_url = published_dates_by_url(search_results)
 
                 try:
-                    await step_logger("exa_fetch_start", {"url_count": len(new_urls)})
+                    await step_logger("exa_fetch_start", {"url_count": len(kept_urls)})
                     fetch_started = time.monotonic()
-                    fetched = await exa.fetch(new_urls)
+                    fetched = await exa.fetch(kept_urls)
                     published_by_url.update(published_dates_by_url(fetched))
                     await step_logger(
                         "exa_fetch_done",
@@ -385,6 +511,7 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
 
                 found_relevant = False
                 for item in fetched:
+                    check_run_cancelled(run_id)
                     url = item.get("url")
                     if not url or url in known_urls or is_blocked_url(url):
                         continue
@@ -430,18 +557,29 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
                             )
                             continue
 
+                    resolution, resolution_kind = resolve_extraction_department(
+                        extraction,
+                        target_department_code=department,
+                        country=country,
+                    )
+                    extraction = resolution
                     target_department = format_department(department, country)
                     extracted_department = normalize_department(extraction.department, country)
-                    if (
-                        extracted_department
-                        and target_department
-                        and extracted_department != target_department
-                    ):
-                        continue
+                    cross_department = resolution_kind == "cross_department"
 
-                    extraction.department = ensure_department(
-                        extraction.department, department, country
-                    )
+                    if resolution_kind == "foreign":
+                        mark_url_seen(session, url, "foreign_location", run_id)
+                        known_urls.add(url)
+                        session.commit()
+                        await _emit_article_skipped(
+                            session,
+                            run_id,
+                            url=url,
+                            title=title,
+                            reason="foreign_location",
+                            extra={"city": extraction.city},
+                        )
+                        continue
                     if not extraction.sector:
                         extraction.sector = sector  # type: ignore[assignment]
 
@@ -465,12 +603,18 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
                             "company_searching",
                             {"company": extraction.company, "url": url},
                         )
-                        company_resolution = await enrich_company(
-                            extraction,
-                            article_text=text,
-                            country=country,
-                            step_logger=step_logger,
-                        )
+                        try:
+                            company_resolution = await enrich_company(
+                                extraction,
+                                article_text=text,
+                                country=country,
+                                step_logger=step_logger,
+                            )
+                        except Exception as exc:
+                            company_resolution = CompanyResolution(
+                                matched=False,
+                                reason=f"Résolution SIREN échouée : {exc}",
+                            )
                         if company_resolution.matched:
                             await log_and_emit(
                                 session,
@@ -503,23 +647,40 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
                     session.commit()
 
                     known_urls.add(url)
-                    run.articles_found += 1
-                    if is_new:
-                        run.projects_new += 1
+                    if cross_department:
+                        mark_url_seen(session, url, "cross_department", run_id)
+                        session.commit()
+                        await log_and_emit(
+                            session,
+                            run_id,
+                            "project_imported_cross_department",
+                            {
+                                "url": url,
+                                "title": title,
+                                "name": project.name,
+                                "project_id": str(project.id),
+                                "is_new": is_new,
+                                "target_department": target_department,
+                                "extracted_department": extracted_department,
+                            },
+                        )
                     else:
-                        run.projects_updated += 1
-                    session.commit()
-
-                    await log_and_emit(
-                        session,
-                        run_id,
-                        "project_found",
-                        {
-                            "project_id": str(project.id),
-                            "name": project.name,
-                            "is_new": is_new,
-                        },
-                    )
+                        run.articles_found += 1
+                        if is_new:
+                            run.projects_new += 1
+                        else:
+                            run.projects_updated += 1
+                        session.commit()
+                        await log_and_emit(
+                            session,
+                            run_id,
+                            "project_found",
+                            {
+                                "project_id": str(project.id),
+                                "name": project.name,
+                                "is_new": is_new,
+                            },
+                        )
 
                     found_relevant = True
                     if test_single:
@@ -543,15 +704,18 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
             )
             return run
 
+        check_run_cancelled(run_id)
+
         if not test_single:
-            await log_and_emit(
-                session, run_id, "deduplicating", {"message": "Consolidation des doublons…"}
+            from app.agent.dedup_service import run_dedup_for_run
+
+            await run_dedup_for_run(
+                session,
+                run,
+                scope="run",
+                country=country,
+                step_logger=step_logger,
             )
-            merged_events = await run_dedup_pass(
-                session, run, config.departments, country=country, step_logger=step_logger
-            )
-            for event in merged_events:
-                await log_and_emit(session, run_id, "project_merged", event)
 
         run.status = "completed"
         run.finished_at = datetime.now(timezone.utc)
@@ -567,6 +731,26 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
                 "projects_merged": run.projects_merged,
             },
         )
+    except RunCancelled:
+        session.rollback()
+        run = session.get(Run, run_id)
+        if run:
+            run.status = "cancelled"
+            run.finished_at = datetime.now(timezone.utc)
+            session.commit()
+            await log_and_emit(
+                session,
+                run_id,
+                "run_cancelled",
+                {
+                    "articles_found": run.articles_found,
+                    "projects_new": run.projects_new,
+                    "projects_updated": run.projects_updated,
+                    "projects_merged": run.projects_merged,
+                },
+            )
+        clear_run_cancel(run_id)
+        return run  # type: ignore[return-value]
     except Exception as exc:
         session.rollback()
         run = session.get(Run, run_id)
@@ -576,6 +760,8 @@ async def run_pipeline(session: Session, run_id: uuid.UUID | None = None) -> Run
             run.finished_at = datetime.now(timezone.utc)
             session.commit()
             await log_and_emit(session, run_id, "run_failed", {"error": str(exc)})
+        clear_run_cancel(run_id)
         raise
 
+    clear_run_cancel(run_id)
     return run
