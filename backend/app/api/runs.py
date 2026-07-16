@@ -8,7 +8,13 @@ from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 
 from app.agent.dedup_service import run_dedup_for_run
-from app.agent.pipeline import emit_event, get_run_queue, run_pipeline
+from app.agent.pipeline import (
+    clear_run_cancel,
+    emit_event,
+    get_run_queue,
+    request_run_cancel,
+    run_pipeline,
+)
 from app.api.config import get_or_create_config
 from app.db.session import SessionLocal, get_db
 from app.models.project_merge import ProjectMerge
@@ -76,6 +82,7 @@ def _execute_pipeline(run_id: uuid.UUID):
             db.commit()
     finally:
         _active_run_ids.discard(run_id)
+        clear_run_cancel(run_id)
         db.close()
 
 
@@ -329,6 +336,20 @@ def trigger_run_dedup(
     )
 
 
+@router.post("/{run_id}/stop", status_code=202, response_model=RunRead)
+def stop_run(run_id: uuid.UUID, db: Session = Depends(get_db)):
+    run = db.get(Run, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if run.status != "in_progress":
+        raise HTTPException(status_code=409, detail="Run is not in progress")
+    if run_id not in _active_run_ids:
+        raise HTTPException(status_code=409, detail="Run worker not active")
+
+    request_run_cancel(run_id)
+    return _run_to_read(run)
+
+
 @router.get("/{run_id}/stream")
 async def stream_run(run_id: uuid.UUID, db: Session = Depends(get_db)):
     run = db.get(Run, run_id)
@@ -338,18 +359,23 @@ async def stream_run(run_id: uuid.UUID, db: Session = Depends(get_db)):
     queue = get_run_queue(str(run_id))
 
     async def event_generator():
-        if run.status in ("completed", "failed"):
+        if run.status in ("completed", "failed", "cancelled"):
+            event_name = (
+                "run_cancelled"
+                if run.status == "cancelled"
+                else f"run_{run.status}"
+            )
+            payload: dict = {
+                "articles_found": run.articles_found,
+                "projects_new": run.projects_new,
+                "projects_updated": run.projects_updated,
+                "projects_merged": run.projects_merged,
+            }
+            if run.status == "failed":
+                payload["error"] = run.error_message
             yield {
-                "event": f"run_{run.status}",
-                "data": json.dumps(
-                    {
-                        "articles_found": run.articles_found,
-                        "projects_new": run.projects_new,
-                        "projects_updated": run.projects_updated,
-                        "projects_merged": run.projects_merged,
-                        "error": run.error_message,
-                    }
-                ),
+                "event": event_name,
+                "data": json.dumps(payload),
             }
             return
 
@@ -360,7 +386,7 @@ async def stream_run(run_id: uuid.UUID, db: Session = Depends(get_db)):
                     "event": message["event"],
                     "data": json.dumps(message["data"]),
                 }
-                if message["event"] in ("run_completed", "run_failed"):
+                if message["event"] in ("run_completed", "run_failed", "run_cancelled"):
                     break
             except asyncio.TimeoutError:
                 yield {"event": "ping", "data": "{}"}

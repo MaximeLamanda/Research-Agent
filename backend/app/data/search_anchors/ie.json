@@ -1,0 +1,6 @@
+{
+  "LE": {"cities": ["Dublin", "Kilkenny", "Wexford", "Dundalk", "Drogheda"]},
+  "MU": {"cities": ["Cork", "Limerick", "Waterford", "Tralee", "Ennis"]},
+  "CN": {"cities": ["Galway", "Sligo", "Castlebar", "Athlone", "Ballina"]},
+  "UL": {"cities": ["Letterkenny", "Monaghan", "Cavan", "Donegal", "Buncrana"]}
+}

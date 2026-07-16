@@ -166,6 +166,17 @@ export function useRunStream(runId: string | null, onComplete?: () => void) {
         onCompleteRef.current?.();
         source.close();
       },
+      run_cancelled: (data) => {
+        applyEvent("run_cancelled", data);
+        setState({
+          active: false,
+          message: "",
+          stats: data,
+          batches: initialBatchesState(),
+        });
+        onCompleteRef.current?.();
+        source.close();
+      },
       run_failed: (data) => {
         applyEvent("run_failed", data);
         setState({

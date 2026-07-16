@@ -126,6 +126,18 @@ def _migrate_schema() -> None:
                     )
                 )
 
+    if inspector.has_table("config"):
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "UPDATE config SET geographical_granularity = 'large' "
+                    "WHERE geographical_granularity = 'city_focus'"
+                )
+            )
+            connection.execute(
+                text("UPDATE config SET exa_search_type = 'auto' WHERE exa_search_type = 'deep'")
+            )
+
 
 def _cleanup_stale_runs() -> None:
     db = SessionLocal()

@@ -61,3 +61,30 @@ async def test_resolve_no_candidates():
     )
     assert result.matched is False
     assert result.siren is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_handles_invalid_llm_json():
+    candidates = [
+        CompanyCandidate(
+            siren="552032534",
+            nom_complet="BUGATTI",
+            naf_code="29.10Z",
+            ville="DORLISHEIM",
+        ),
+    ]
+    resolver = CompanyResolver()
+    with patch.object(
+        resolver,
+        "_call_llm",
+        new_callable=AsyncMock,
+        return_value='{"matched": true, "reason": "guillemets "cassés"}',
+    ):
+        result = await resolver.resolve(
+            company_name="Bugatti",
+            article_context="Bugatti ouvre une manufacture.",
+            candidates=candidates,
+        )
+
+    assert result.matched is False
+    assert "Réponse LLM invalide" in (result.reason or "")

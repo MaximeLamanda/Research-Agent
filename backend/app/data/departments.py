@@ -119,17 +119,42 @@ DE_LANDER: dict[str, str] = {
     "TH": "Thüringen",
 }
 
+GB_REGIONS: dict[str, str] = {
+    "UKC": "North East",
+    "UKD": "North West",
+    "UKE": "Yorkshire and The Humber",
+    "UKF": "East Midlands",
+    "UKG": "West Midlands",
+    "UKH": "East of England",
+    "UKI": "London",
+    "UKJ": "South East",
+    "UKK": "South West",
+    "UKL": "Wales",
+    "UKM": "Scotland",
+    "UKN": "Northern Ireland",
+}
+
+IE_PROVINCES: dict[str, str] = {
+    "LE": "Leinster",
+    "MU": "Munster",
+    "CN": "Connacht",
+    "UL": "Ulster",
+}
+
 REGIONS_BY_COUNTRY: dict[str, dict[str, str]] = {
     "FR": FR_DEPARTMENTS,
     "DE": DE_LANDER,
+    "GB": GB_REGIONS,
+    "IE": IE_PROVINCES,
 }
 
 # Backward compatibility
 DEPARTMENTS = FR_DEPARTMENTS
 
-_FORMATTED_RE = re.compile(r"^([A-Z]{2}|\d{2}[AB]?)\s*[-—]\s*(.+)$", re.IGNORECASE)
+_FORMATTED_RE = re.compile(r"^([A-Z]{2,3}|\d{2}[AB]?)\s*[-—]\s*(.+)$", re.IGNORECASE)
 _FR_CODE_RE = re.compile(r"^\d{2}[AB]?$", re.IGNORECASE)
 _DE_CODE_RE = re.compile(r"^[A-Z]{2}$")
+_GB_CODE_RE = re.compile(r"^UK[A-Z]$")
 
 
 def _normalize_name(value: str) -> str:
@@ -149,12 +174,17 @@ def _normalize_code(code: str, country: str = "FR") -> str:
     return normalized_code
 
 
-def _detect_country_from_code(code: str) -> str:
-    if _FR_CODE_RE.match(code):
+def _detect_country_from_code(code: str) -> str | None:
+    upper = code.upper()
+    if _FR_CODE_RE.match(upper):
         return "FR"
-    if _DE_CODE_RE.match(code):
+    if _GB_CODE_RE.match(upper):
+        return "GB"
+    if upper in IE_PROVINCES:
+        return "IE"
+    if _DE_CODE_RE.match(upper) and upper in DE_LANDER:
         return "DE"
-    return "FR"
+    return None
 
 
 def infer_country_from_department(department: str | None) -> str | None:
@@ -172,7 +202,13 @@ def infer_country_from_department(department: str | None) -> str | None:
     if _FR_CODE_RE.match(raw):
         return "FR"
 
-    if _DE_CODE_RE.match(raw):
+    if _GB_CODE_RE.match(raw):
+        return "GB"
+
+    if raw.upper() in IE_PROVINCES:
+        return "IE"
+
+    if _DE_CODE_RE.match(raw) and raw.upper() in DE_LANDER:
         return "DE"
 
     return None
@@ -207,19 +243,27 @@ def normalize_department(value: str | None, country: str = "FR") -> str | None:
     if formatted:
         code = formatted.group(1).upper()
         detected = _detect_country_from_code(code)
-        return format_department(code, detected)
+        if detected:
+            return format_department(code, detected)
+        return None
 
     if _FR_CODE_RE.match(raw):
         return format_department(raw, "FR")
 
-    if _DE_CODE_RE.match(raw):
+    if _GB_CODE_RE.match(raw):
+        return format_department(raw, "GB")
+
+    if raw.upper() in IE_PROVINCES:
+        return format_department(raw, "IE")
+
+    if _DE_CODE_RE.match(raw) and raw.upper() in DE_LANDER:
         return format_department(raw, "DE")
 
     code = _name_to_code_map(country).get(_normalize_name(raw))
     if code:
         return format_department(code, country)
 
-    for fallback_country in ("FR", "DE"):
+    for fallback_country in ("FR", "DE", "GB", "IE"):
         if fallback_country == country:
             continue
         code = _name_to_code_map(fallback_country).get(_normalize_name(raw))

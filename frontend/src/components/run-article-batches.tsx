@@ -7,14 +7,14 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import {
+  articleStatusLabel,
   sectorLabel,
-  SKIP_REASON_LABELS,
   type ArticleBatch,
   type ArticleLine,
   type BatchesState,
 } from "@/lib/run-article-batches";
 import { BouncingDots } from "@/components/ui/bouncing-dots";
-import { Check, Circle, Minus } from "lucide-react";
+import { Check, Circle, Clock, Minus } from "lucide-react";
 
 function StatusIcon({ article }: { article: ArticleLine }) {
   switch (article.status) {
@@ -34,6 +34,8 @@ function StatusIcon({ article }: { article: ArticleLine }) {
       return <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />;
     case "ignored":
       return <Minus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
+    case "deferred":
+      return <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500/80" />;
     case "not_relevant":
       return <Check className="h-3.5 w-3.5 shrink-0 text-orange-400" />;
     case "cross_department":
@@ -44,7 +46,8 @@ function StatusIcon({ article }: { article: ArticleLine }) {
 }
 
 function ArticleRow({ article }: { article: ArticleLine }) {
-  const muted = article.status === "ignored";
+  const muted = article.status === "ignored" || article.status === "not_relevant";
+  const statusLabel = articleStatusLabel(article);
   return (
     <li
       className={`flex items-center gap-2 py-1 text-xs ${muted ? "text-muted-foreground" : ""}`}
@@ -54,7 +57,9 @@ function ArticleRow({ article }: { article: ArticleLine }) {
         href={article.url}
         target="_blank"
         rel="noopener noreferrer"
-        className={`min-w-0 flex-1 truncate hover:underline ${muted ? "line-through" : "text-foreground"}`}
+        className={`min-w-0 flex-1 truncate hover:underline ${
+          muted ? "line-through" : "text-foreground"
+        }`}
       >
         {article.title}
       </a>
@@ -63,13 +68,19 @@ function ArticleRow({ article }: { article: ArticleLine }) {
           {article.score.toFixed(2)}
         </span>
       )}
-      {article.status === "ignored" && article.skipReason && (
-        <span className="shrink-0 text-[10px] text-muted-foreground">
-          {SKIP_REASON_LABELS[article.skipReason] ?? article.skipReason}
+      {statusLabel && (
+        <span
+          className={`shrink-0 max-w-[45%] truncate rounded px-1.5 py-0.5 text-[10px] ${
+            article.status === "deferred"
+              ? "bg-amber-500/10 text-amber-700"
+              : article.status === "not_relevant"
+                ? "bg-orange-500/10 text-orange-700"
+                : "bg-muted text-muted-foreground"
+          }`}
+          title={article.prefilterReason ?? statusLabel}
+        >
+          {statusLabel}
         </span>
-      )}
-      {article.status === "ignored" && !article.skipReason && (
-        <span className="shrink-0 text-[10px] text-muted-foreground">ignoré</span>
       )}
       {article.status === "cross_department" && article.importedDepartment && (
         <span className="shrink-0 text-[10px] text-sky-600">
@@ -88,7 +99,7 @@ function BatchBlock({
   onToggle: () => void;
 }) {
   const doneCount = batch.articles.filter((a) =>
-    ["done", "ignored", "not_relevant", "cross_department"].includes(a.status)
+    ["done", "ignored", "deferred", "not_relevant", "cross_department"].includes(a.status)
   ).length;
 
   return (

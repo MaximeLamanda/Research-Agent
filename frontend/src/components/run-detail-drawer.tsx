@@ -36,6 +36,7 @@ const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secon
   in_progress: { label: "In progress", variant: "default" },
   completed: { label: "Completed", variant: "outline" },
   failed: { label: "Failed", variant: "destructive" },
+  cancelled: { label: "Cancelled", variant: "secondary" },
 };
 
 

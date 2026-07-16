@@ -13,6 +13,9 @@ const STEP_LABELS: Record<string, string> = {
   searching: "Recherche",
   exa_search_start: "Exa recherche",
   exa_search_done: "Exa recherche OK",
+  prefilter_start: "Préfiltre LLM",
+  prefilter_done: "Préfiltre LLM OK",
+  prefilter_failed: "Préfiltre LLM échoué",
   exa_fetch_start: "Exa fetch",
   exa_fetch_done: "Exa fetch OK",
   extracting: "Extraction",
@@ -35,6 +38,7 @@ const STEP_LABELS: Record<string, string> = {
   project_merged: "Fusion",
   run_completed: "Terminé",
   run_failed: "Échec",
+  run_cancelled: "Arrêté",
 };
 
 const STEP_COLORS: Record<string, string> = {
@@ -286,6 +290,37 @@ function StepExaDetails({ step }: { step: RunStep }) {
   return null;
 }
 
+function StepArticleSkippedDetails({ step }: { step: RunStep }) {
+  if (step.step_type !== "article_skipped") return null;
+
+  const url = typeof step.data.url === "string" ? step.data.url : "";
+  const reason = typeof step.data.reason === "string" ? step.data.reason : "";
+  const prefilterReason =
+    typeof step.data.prefilter_reason === "string" ? step.data.prefilter_reason.trim() : "";
+
+  if (!url && !prefilterReason) return null;
+
+  return (
+    <div className="mt-1 rounded-md border bg-muted/20 px-2.5 py-2 text-xs text-muted-foreground">
+      {url && (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="line-clamp-2 font-medium text-blue-600 hover:underline"
+        >
+          {url}
+        </a>
+      )}
+      {reason === "prefiltered" && prefilterReason && (
+        <p className="mt-1 leading-relaxed">
+          <span className="font-medium text-foreground">Raison LLM :</span> {prefilterReason}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function RunStepsTimeline({ steps }: { steps: RunStep[] }) {
   if (steps.length === 0) {
     return <p className="text-sm text-muted-foreground">Aucune étape enregistrée.</p>;
@@ -364,6 +399,7 @@ export function RunStepsTimeline({ steps }: { steps: RunStep[] }) {
               )}
               <StepDedupDetails step={step} />
               <StepExaDetails step={step} />
+              <StepArticleSkippedDetails step={step} />
             </li>
           );
         })}

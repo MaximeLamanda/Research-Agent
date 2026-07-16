@@ -38,16 +38,23 @@ def metro_for_region(code: str, country: str = "FR") -> str | None:
     return metro if isinstance(metro, str) and metro.strip() else None
 
 
+def _joiner_for_country(country: str) -> str:
+    if country == "DE":
+        return " und "
+    if country in ("GB", "IE"):
+        return " and "
+    return " et "
+
+
 def _phrase_cities(cities: list[str], country: str) -> str:
     if not cities:
         return ""
     if len(cities) == 1:
         return cities[0]
+    joiner = _joiner_for_country(country.upper())
     if len(cities) == 2:
-        joiner = " und " if country == "DE" else " et "
         return f"{cities[0]}{joiner}{cities[1]}"
     sep = ", "
-    joiner = " und " if country == "DE" else " et "
     return sep.join(cities[:-1]) + joiner + cities[-1]
 
 
@@ -56,8 +63,11 @@ def anchor_segment_for_cities(cities: list[str], country: str = "FR") -> str:
     phrase = _phrase_cities(cities, country.upper())
     if not phrase:
         return ""
-    if country.upper() == "DE":
+    normalized = country.upper()
+    if normalized == "DE":
         return f" in {phrase}"
+    if normalized in ("GB", "IE"):
+        return f" around {phrase}"
     return f" autour de {phrase}"
 
 

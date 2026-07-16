@@ -216,6 +216,10 @@ export function triggerRun(mode: "full" | "test_single" = "full") {
   return request<Run>("/api/runs", { method: "POST", body: JSON.stringify({ mode }) });
 }
 
+export function stopRun(runId: string) {
+  return request<Run>(`/api/runs/${runId}/stop`, { method: "POST" });
+}
+
 export interface RunDedupResponse {
   run_id: string;
   status: "started";
@@ -231,8 +235,4 @@ export function triggerRunDedup(
     method: "POST",
     body: JSON.stringify(options ?? {}),
   });
-}
-
-export function triggerTestRun() {
-  return triggerRun("test_single");
 }

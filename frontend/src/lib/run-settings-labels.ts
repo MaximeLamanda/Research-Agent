@@ -5,7 +5,6 @@ const EXA_SEARCH_TYPE_LABELS: Record<string, string> = {
   neural: "Neural",
   keyword: "Keyword",
   fast: "Fast",
-  deep: "Deep",
 };
 
 const EXA_CATEGORY_LABELS: Record<string, string> = {
@@ -23,7 +22,7 @@ const EXA_CATEGORY_LABELS: Record<string, string> = {
 export function geographicalGranularityLabel(value: string): string {
   return (
     GEOGRAPHICAL_GRANULARITY_OPTIONS.find((option) => option.value === value)?.label ??
-    value
+    (value === "city_focus" ? "Département" : value)
   );
 }
 

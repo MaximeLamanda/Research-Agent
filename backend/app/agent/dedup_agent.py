@@ -8,10 +8,15 @@ from collections.abc import Awaitable, Callable
 
 from rapidfuzz import fuzz
 from slugify import slugify
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.agent.deduplication import extract_distinctive_name_tokens, extract_name_tokens, merge_projects
+from app.agent.deduplication import (
+    extract_distinctive_name_tokens,
+    extract_name_tokens,
+    merge_projects,
+)
 from app.agent.llm_extractor import LLMExtractor, parse_json_content
 from app.data.departments import format_department, normalize_department
 from app.models.dedup_decision import DedupDecision
@@ -183,6 +188,42 @@ def _same_city(city_a: str | None, city_b: str | None) -> bool:
     return slugify(city_a) == slugify(city_b)
 
 
+def _token_in_city_slug(token: str, city_slug: str) -> bool:
+    if not city_slug:
+        return False
+    token_slug = slugify(token)
+    if not token_slug:
+        return False
+    return token_slug in city_slug.split("-") or city_slug.startswith(token_slug)
+
+
+def _same_company(project_a: Project, project_b: Project) -> bool:
+    if company_similarity(project_a.company, project_b.company) >= COMPANY_SIMILARITY_MIN:
+        return True
+    for company, name in (
+        (project_a.company, project_b.name),
+        (project_b.company, project_a.name),
+    ):
+        if company and company_similarity(company, name) >= COMPANY_SIMILARITY_MIN:
+            return True
+    if project_a.company and project_b.company:
+        return False
+    if not has_brand_overlap(project_a.name, project_b.name):
+        return False
+    shared = set(extract_distinctive_name_tokens(project_a.name)) & set(
+        extract_distinctive_name_tokens(project_b.name)
+    )
+    if not shared:
+        return False
+    city_slugs = {slugify(project_a.city or ""), slugify(project_b.city or "")}
+    company_tokens = {
+        token
+        for token in shared
+        if not any(_token_in_city_slug(token, city_slug) for city_slug in city_slugs)
+    }
+    return bool(company_tokens)
+
+
 def _department_matches(
     project_department: str | None,
     target_label: str,
@@ -248,10 +289,16 @@ def find_candidate_pairs(projects: list[Project]) -> list[tuple[Project, Project
             if not name_match and not address_match and not company_match and not people_match:
                 continue
 
-            same_city = _same_city(project_a.city, project_b.city)
-
-            # Candidature par nom : même commune, sauf preuve par l'adresse.
-            if name_match and not address_match and not same_city:
+            # Candidature par nom : même commune ou même entreprise, sauf adresse ou contact.
+            if (
+                name_match
+                and not address_match
+                and not people_match
+                and not (
+                    _same_city(project_a.city, project_b.city)
+                    or _same_company(project_a, project_b)
+                )
+            ):
                 continue
 
             pair_score = _pair_match_score(
@@ -496,6 +543,7 @@ async def run_dedup_pass(
                 .filter(
                     Project.merged_into_id.is_(None),
                     Project.department.isnot(None),
+                    func.coalesce(Project.country, country) == country,
                     Project.department.like(department_prefix),
                 )
                 .all()

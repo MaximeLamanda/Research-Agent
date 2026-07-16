@@ -307,6 +307,77 @@ def test_find_candidate_pairs_shared_contact_different_city_without_name_match(d
     assert len(pairs) == 1
 
 
+def test_find_candidate_pairs_similar_name_same_company_different_city(db_session):
+    """Cas ARGAN : noms proches + même promoteur, villes différentes → candidat LLM."""
+    project_a = Project(
+        name="ARGAN delivers two logistics platforms to Ferrero in Normandy",
+        company="ARGAN",
+        city="Cléon and Barentin",
+        department="76 - Seine-Maritime",
+        match_key="a|b",
+    )
+    project_b = Project(
+        name="ARGAN delivers two logistics sites for FERRERO in Normandy",
+        company="ARGAN",
+        city="Cléon",
+        department="76 - Seine-Maritime",
+        match_key="c|d",
+    )
+    db_session.add_all([project_a, project_b])
+    db_session.commit()
+
+    pairs = find_candidate_pairs([project_a, project_b])
+    assert len(pairs) == 1
+    assert pairs[0][2] >= FUZZY_AUTO_MERGE
+
+
+def test_find_candidate_pairs_same_brand_different_city_labels_without_company_field(db_session):
+    """Waterstones : noms proches, même marque, villes Burton vs Burton upon Trent, pas de champ company."""
+    project_a = Project(
+        name="Waterstones new Burton warehouse",
+        city="Burton upon Trent",
+        department="UKG - West Midlands",
+        country="GB",
+        match_key="a|b",
+    )
+    project_b = Project(
+        name="Waterstones distribution centre at Indurent Park Burton",
+        city="Burton",
+        address="Indurent Park Burton",
+        department="UKG - West Midlands",
+        country="GB",
+        match_key="c|d",
+    )
+    db_session.add_all([project_a, project_b])
+    db_session.commit()
+
+    pairs = find_candidate_pairs([project_a, project_b])
+    assert len(pairs) == 1
+
+
+def test_find_candidate_pairs_name_only_rejected_without_same_city_or_company(db_session):
+    """Noms proches mais villes et entreprises différentes → pas candidat."""
+    project_a = Project(
+        name="Entrepôt logistique Nord",
+        company="DHL Supply Chain",
+        city="Lille",
+        department="59 - Nord",
+        match_key="a|b",
+    )
+    project_b = Project(
+        name="Plateforme logistique Sud",
+        company="Geodis",
+        city="Marseille",
+        department="13 - Bouches-du-Rhône",
+        match_key="c|d",
+    )
+    db_session.add_all([project_a, project_b])
+    db_session.commit()
+
+    pairs = find_candidate_pairs([project_a, project_b])
+    assert pairs == []
+
+
 @pytest.mark.asyncio
 async def test_run_dedup_pass_same_company_different_city_goes_to_llm(db_session):
     run = Run(status="in_progress")

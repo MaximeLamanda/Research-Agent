@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.data.departments import ensure_department, format_department
@@ -58,9 +58,10 @@ def list_projects(
     sector: str | None = Query(None),
     db: Session = Depends(get_db),
 ):
+    country = country.upper()
     query = db.query(Project).options(
         joinedload(Project.sources).joinedload(Source.run)
-    )
+    ).filter(func.coalesce(Project.country, "FR") == country)
     dept_codes = departments or ([department] if department else [])
     if dept_codes:
         normalized = []

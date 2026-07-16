@@ -78,10 +78,52 @@ def test_llm_prompt_german_department_format():
     assert "Bundesland" in prompt
 
 
+def test_system_prompt_for_country_gb():
+    prompt = system_prompt_for_country("GB")
+    assert "UKI - London" in prompt
+    assert "United Kingdom" in prompt or "NUTS1" in prompt or "region" in prompt.lower()
+
+
+def test_system_prompt_for_country_ie():
+    prompt = system_prompt_for_country("IE")
+    assert "LE - Leinster" in prompt
+    assert "Ireland" in prompt
+
+
 def test_infer_country_from_department():
     assert infer_country_from_department("69 - Rhône") == "FR"
     assert infer_country_from_department("BY - Bayern") == "DE"
     assert infer_country_from_department(None) is None
+
+
+def test_format_department_gb():
+    assert format_department("UKI", "GB") == "UKI - London"
+    assert format_department("UKD", "GB") == "UKD - North West"
+
+
+def test_format_department_ie():
+    assert format_department("LE", "IE") == "LE - Leinster"
+    assert format_department("MU", "IE") == "MU - Munster"
+
+
+def test_normalize_department_gb_formatted():
+    assert normalize_department("UKI - London", "GB") == "UKI - London"
+    assert normalize_department("UKD - North West", "GB") == "UKD - North West"
+
+
+def test_normalize_department_ie_formatted():
+    assert normalize_department("LE - Leinster", "IE") == "LE - Leinster"
+
+
+def test_infer_country_from_department_gb_ie():
+    assert infer_country_from_department("UKI - London") == "GB"
+    assert infer_country_from_department("UKM - Scotland") == "GB"
+    assert infer_country_from_department("LE - Leinster") == "IE"
+    assert infer_country_from_department("MU - Munster") == "IE"
+
+
+def test_infer_country_from_department_unknown_returns_none():
+    assert infer_country_from_department("ZZ - Nowhere") is None
 
 
 def test_llm_prompt_requires_relevance_filter():

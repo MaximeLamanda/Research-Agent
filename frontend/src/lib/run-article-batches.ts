@@ -2,17 +2,41 @@ export const SKIP_REASON_LABELS: Record<string, string> = {
   known: "connu",
   blocked: "bloqué",
   prefiltered: "préfiltré",
-  not_fetched: "non fetché",
+  deferred: "en attente",
+  not_fetched: "en attente",
   short_text: "texte court",
   extraction_failed: "extraction échouée",
   skipped: "ignoré",
+  foreign_location: "hors France",
+  foreign_locale: "langue étrangère",
+  not_relevant: "non pertinent",
 };
+
+export function articleStatusLabel(article: ArticleLine): string | null {
+  if (article.status === "ignored") {
+    if (article.skipReason === "prefiltered" && article.prefilterReason) {
+      return `préfiltré — ${article.prefilterReason}`;
+    }
+    if (article.skipReason) {
+      return SKIP_REASON_LABELS[article.skipReason] ?? article.skipReason;
+    }
+    return "ignoré";
+  }
+  if (article.status === "not_relevant") {
+    return SKIP_REASON_LABELS.not_relevant;
+  }
+  if (article.status === "deferred") {
+    return SKIP_REASON_LABELS.deferred;
+  }
+  return null;
+}
 
 export type ArticleLineStatus =
   | "pending"
   | "scanning"
   | "done"
   | "ignored"
+  | "deferred"
   | "not_relevant"
   | "cross_department";
 
@@ -22,6 +46,7 @@ export interface ArticleLine {
   score?: number;
   status: ArticleLineStatus;
   skipReason?: string;
+  prefilterReason?: string;
   importedDepartment?: string;
 }
 
@@ -39,7 +64,7 @@ export interface BatchesState {
   scanningUrl: string | null;
 }
 
-const TERMINAL: ArticleLineStatus[] = ["done", "ignored", "not_relevant", "cross_department"];
+const TERMINAL: ArticleLineStatus[] = ["done", "ignored", "deferred", "not_relevant", "cross_department"];
 
 const SECTOR_LABELS: Record<string, string> = {
   industriel: "Industriel",
@@ -82,13 +107,13 @@ function updateArticleInLatestBatch(
   return state;
 }
 
-function markUnfetchedAsIgnored(
+function markUnfetchedAsDeferred(
   batch: ArticleBatch,
   fetchedUrls: Set<string>
 ): ArticleBatch {
   const articles = batch.articles.map((a) =>
     !fetchedUrls.has(a.url) && a.status === "pending"
-      ? { ...a, status: "ignored" as const, skipReason: "not_fetched" }
+      ? { ...a, status: "deferred" as const, skipReason: "deferred" }
       : a
   );
   return maybeCollapseBatch({ ...batch, articles });
@@ -148,7 +173,7 @@ export function applyRunStreamEvent(
       if (state.batches.length === 0) return state;
       const batches = [...state.batches];
       const last = batches.length - 1;
-      batches[last] = markUnfetchedAsIgnored(batches[last], fetchedUrls);
+      batches[last] = markUnfetchedAsDeferred(batches[last], fetchedUrls);
       return { ...state, batches };
     }
 
@@ -157,6 +182,10 @@ export function applyRunStreamEvent(
         ...a,
         status: "ignored",
         skipReason: String(data.reason ?? "skipped"),
+        prefilterReason:
+          typeof data.prefilter_reason === "string" && data.prefilter_reason.trim()
+            ? data.prefilter_reason.trim()
+            : undefined,
       }));
 
     case "extracting": {
@@ -175,6 +204,7 @@ export function applyRunStreamEvent(
       const next = updateArticleInLatestBatch(state, url, (a) => ({
         ...a,
         status: isRelevant ? "done" : "not_relevant",
+        skipReason: isRelevant ? undefined : "not_relevant",
       }));
       return { ...next, scanningUrl: null };
     }
@@ -183,6 +213,7 @@ export function applyRunStreamEvent(
       return updateArticleInLatestBatch(state, String(data.url ?? ""), (a) => ({
         ...a,
         status: "not_relevant",
+        skipReason: "not_relevant",
       }));
 
     case "project_imported_cross_department": {

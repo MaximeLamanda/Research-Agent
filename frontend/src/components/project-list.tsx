@@ -12,6 +12,7 @@ import {
 import { ProjectDetailDrawer } from "@/components/project-detail-drawer";
 import { ProjectTable } from "@/components/project-table";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   Popover,
   PopoverContent,
@@ -20,12 +21,28 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 const EXPORT_COUNTRY_LABELS: Record<string, string> = {
   FR: "France",
   DE: "Allemagne",
+  GB: "United Kingdom",
+  IE: "Ireland",
 };
+
+function regionFilterLabel(country: string): string {
+  if (country === "DE") return "Land";
+  if (country === "GB") return "Région";
+  if (country === "IE") return "Province";
+  return "Région";
+}
 
 export function ProjectList({ refreshKey }: { refreshKey: number }) {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -49,13 +66,12 @@ export function ProjectList({ refreshKey }: { refreshKey: number }) {
     setLoading(true);
     setError(null);
     try {
-      const data =
-        selectedDepartments.length > 0
-          ? await getProjects({
-              departments: selectedDepartments,
-              country: filterCountry,
-            })
-          : await getProjects();
+      const data = await getProjects({
+        country: filterCountry,
+        ...(selectedDepartments.length > 0
+          ? { departments: selectedDepartments }
+          : {}),
+      });
       setProjects(data);
     } catch {
       setError(
@@ -69,6 +85,11 @@ export function ProjectList({ refreshKey }: { refreshKey: number }) {
   useEffect(() => {
     load();
   }, [load, refreshKey, selectedDepartments, filterCountry]);
+
+  function handleCountryChange(country: string) {
+    setFilterCountry(country);
+    setSelectedDepartments([]);
+  }
 
   function openProject(project: Project) {
     setSelectedProject(project);
@@ -95,28 +116,38 @@ export function ProjectList({ refreshKey }: { refreshKey: number }) {
     return <p className="text-sm text-destructive">{error}</p>;
   }
 
-  if (projects.length === 0 && selectedDepartments.length === 0) {
+  const hasActiveFilters = selectedDepartments.length > 0;
+  const filteredEmpty = projects.length === 0;
+
+  if (filteredEmpty && !hasActiveFilters) {
+    const countryLabel =
+      COUNTRIES.find((country) => country.code === filterCountry)?.label ??
+      filterCountry;
     return (
-      <p className="text-sm text-muted-foreground">
-        No projects yet. Configure regions and start a search.
-      </p>
+      <>
+        <ProjectFilters
+          filterCountry={filterCountry}
+          selectedDepartments={selectedDepartments}
+          onCountryChange={handleCountryChange}
+          onDepartmentsChange={setSelectedDepartments}
+        />
+        <p className="text-sm text-muted-foreground">
+          Aucun projet pour {countryLabel}. Configurez les régions et lancez une
+          recherche.
+        </p>
+      </>
     );
   }
-
-  const filteredEmpty =
-    selectedDepartments.length > 0 && projects.length === 0 && !loading;
 
   return (
     <>
       <div className="space-y-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <label className="text-sm font-medium shrink-0">Filtrer par région</label>
-          <DepartmentCombobox
-            country={filterCountry}
-            value={selectedDepartments}
-            onChange={setSelectedDepartments}
-          />
-        </div>
+        <ProjectFilters
+          filterCountry={filterCountry}
+          selectedDepartments={selectedDepartments}
+          onCountryChange={handleCountryChange}
+          onDepartmentsChange={setSelectedDepartments}
+        />
 
         {filteredEmpty ? (
           <p className="text-sm text-muted-foreground">
@@ -191,5 +222,45 @@ export function ProjectList({ refreshKey }: { refreshKey: number }) {
         onOpenChange={setDrawerOpen}
       />
     </>
+  );
+}
+
+function ProjectFilters({
+  filterCountry,
+  selectedDepartments,
+  onCountryChange,
+  onDepartmentsChange,
+}: {
+  filterCountry: string;
+  selectedDepartments: string[];
+  onCountryChange: (country: string) => void;
+  onDepartmentsChange: (departments: string[]) => void;
+}) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div className="space-y-2">
+        <Label htmlFor="project-filter-country">Pays</Label>
+        <Select value={filterCountry} onValueChange={(value) => value && onCountryChange(value)}>
+          <SelectTrigger id="project-filter-country" className="w-full">
+            <SelectValue placeholder="Choisir un pays" />
+          </SelectTrigger>
+          <SelectContent side="bottom" align="start" alignItemWithTrigger={false}>
+            {COUNTRIES.map((country) => (
+              <SelectItem key={country.code} value={country.code}>
+                {country.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="project-filter-region">{regionFilterLabel(filterCountry)}</Label>
+        <DepartmentCombobox
+          country={filterCountry}
+          value={selectedDepartments}
+          onChange={onDepartmentsChange}
+        />
+      </div>
+    </div>
   );
 }

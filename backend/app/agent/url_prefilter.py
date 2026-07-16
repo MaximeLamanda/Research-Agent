@@ -13,18 +13,26 @@ PREFILTER_SYSTEM_PROMPT = """Tu es un assistant pour un installateur solaire C&I
 On te fournit une liste de résultats de recherche (titre + extrait + URL + date éventuelle).
 Pour CHAQUE entrée, décide s'il vaut la peine de récupérer l'article complet.
 
-fetch=true UNIQUEMENT si le titre/extrait suggère un projet de NOUVELLE construction,
-extension, agrandissement ou création de bâtiment industriel, logistique ou retail
-(entrepôt, usine, plateforme logistique, centre commercial neuf, bâtiment tertiaire neuf)
-offrant un potentiel toiture/ombrières pour le solaire C&I.
+Ce préfiltre est volontairement permissif : l'analyse fine (y compris la géographie)
+se fait ensuite sur le texte complet. En cas de doute, retiens l'article (fetch=true).
 
-fetch=false notamment pour : aménagement routier ou voirie, rénovation légère sans
-extension de surface, simple ouverture d'une boutique dans un centre existant,
-concertation publique sans chantier neuf, inauguration ou événement sans construction,
-politique publique sans bâtiment neuf, site déjà en exploitation sans extension,
-fermeture, cession, actualité sans projet de construction.
+fetch=true si le titre ou l'extrait laisse penser à un projet industriel, logistique,
+commercial ou tertiaire potentiellement pertinent pour le solaire en toiture, par exemple :
+- nouvelle construction, extension, agrandissement, déménagement ou création de site
+- investissement, implantation, usine, entrepôt, plateforme logistique, zone d'activités
+- lancement de travaux, permis de construire, livraison d'un nouveau bâtiment
+- réindustrialisation ou réhabilitation lourde avec extension de surface
 
-Dans le doute (titre ambigu mais potentiellement pertinent), mets fetch=true.
+fetch=false UNIQUEMENT si l'article est clairement hors sujet thématique, par exemple :
+- voirie, transport, politique ou société sans lien avec un bâtiment ou site
+- simple ouverture de boutique sans chantier
+- concertation ou débat public sans projet concret annoncé
+- fermeture, liquidation ou cession sans projet de remplacement
+
+Ne filtre PAS sur la géographie (ville, département, région, pays) : c'est géré après.
+Ne rejette pas un article parce que l'extrait est incomplet ou orienté « investissement »
+plutôt que « construction ». Ne rejette pas non plus une inauguration si elle concerne
+un site récemment construit ou agrandi.
 
 Retourne UNIQUEMENT un JSON valide (sans markdown, sans commentaire) :
 [{"url": "...", "fetch": true|false, "reason": "raison courte en français"}]
@@ -69,6 +77,7 @@ class UrlPrefilter:
         self,
         candidates: list[dict],
         step_logger: StepLogger | None = None,
+        country: str = "FR",  # conservé pour compatibilité ; la géo n'est pas filtrée ici
     ) -> dict[str, tuple[bool, str]]:
         if not candidates:
             return {}

@@ -34,19 +34,33 @@ Si une info est absente, mets null ou [].
 """
 
 _DEPARTMENT_RULES_FR = """Pour department, déduis-le de la localisation précise du chantier (ville, adresse, contexte géographique). Ne devine pas : mets null si le département n'est pas identifiable dans l'article.
+N'utilise JAMAIS le département de la recherche ou un département par défaut : si le chantier est à l'étranger ou hors de France, mets null pour department et is_relevant=false.
 Utilise toujours le format "code - nom" avec le code département à 2 caractères (ex. "69 - Rhône")."""
 
 _DEPARTMENT_RULES_DE = """Pour department, déduis le Bundesland de la localisation précise du chantier (ville, adresse, contexte géographique). Ne devine pas : mets null si le Land n'est pas identifiable dans l'article.
+N'utilise JAMAIS le Land de la recherche ou un Land par défaut : si le chantier est à l'étranger ou hors d'Allemagne, mets null pour department et is_relevant=false.
 Utilise toujours le format "code - nom" avec le code Land à 2 lettres (ex. "BY - Bayern", "NW - Nordrhein-Westfalen")."""
+
+_DEPARTMENT_RULES_GB = """For department, infer the NUTS1 region from the precise site location (city, address, geographic context). Do not guess: use null if the region is not identifiable in the article.
+NEVER use the region from the search context or a default region: if the site is abroad or outside the United Kingdom, set department to null and is_relevant=false.
+Always use format "code - name" with the 3-letter NUTS1 code (e.g. "UKI - London", "UKD - North West")."""
+
+_DEPARTMENT_RULES_IE = """For department, infer the province from the precise site location (city, address, geographic context). Do not guess: use null if the province is not identifiable in the article.
+NEVER use the province from the search context or a default: if the site is abroad or outside Ireland, set department to null and is_relevant=false.
+Always use format "code - name" with the 2-letter province code (e.g. "LE - Leinster", "MU - Munster")."""
 
 _DEPARTMENT_FORMATS = {
     "FR": 'format OBLIGATOIRE si connu : "XX - Nom", ex. "69 - Rhône", "38 - Isère" ; jamais le nom seul ni le code seul',
     "DE": 'format OBLIGATOIRE si connu : "XX - Nom", ex. "BY - Bayern", "NW - Nordrhein-Westfalen" ; jamais le nom seul ni le code seul',
+    "GB": 'MANDATORY format if known: "XXX - Name", e.g. "UKI - London", "UKD - North West"; never name or code alone',
+    "IE": 'MANDATORY format if known: "XX - Name", e.g. "LE - Leinster", "MU - Munster"; never name or code alone',
 }
 
 _DEPARTMENT_RULES_BY_COUNTRY = {
     "FR": _DEPARTMENT_RULES_FR,
     "DE": _DEPARTMENT_RULES_DE,
+    "GB": _DEPARTMENT_RULES_GB,
+    "IE": _DEPARTMENT_RULES_IE,
 }
 
 SYSTEM_PROMPT = _BASE_PROMPT.format(
@@ -70,7 +84,14 @@ def parse_json_content(content: str) -> dict:
     fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
     if fence_match:
         text = fence_match.group(1).strip()
-    return json.loads(text)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end > start:
+            return json.loads(text[start : end + 1])
+        raise
 
 
 class LLMExtractor:

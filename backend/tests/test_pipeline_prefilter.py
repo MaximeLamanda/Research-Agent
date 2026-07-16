@@ -52,7 +52,7 @@ async def test_search_requests_25_results_and_caps_fetch_to_10(db_session):
         patch("app.agent.pipeline.ExaClient") as exa_cls,
         patch("app.agent.pipeline.LLMExtractor", return_value=fake_extraction),
         patch("app.agent.pipeline.UrlPrefilter", return_value=fake_prefilter),
-        patch("app.agent.pipeline.run_dedup_pass", new_callable=AsyncMock, return_value=[]),
+        patch("app.agent.dedup_service.run_dedup_for_run", new_callable=AsyncMock, return_value=[]),
         patch("app.agent.pipeline.emit_event", new_callable=AsyncMock),
     ):
         exa = exa_cls.return_value
@@ -71,7 +71,7 @@ async def test_search_requests_25_results_and_caps_fetch_to_10(db_session):
 
 
 @pytest.mark.asyncio
-async def test_prefilter_rejects_emit_skip_and_are_not_marked_processed(db_session):
+async def test_prefilter_rejects_are_marked_processed(db_session):
     config = _make_config()
     db_session.add(config)
     run = Run(status="in_progress")
@@ -96,7 +96,7 @@ async def test_prefilter_rejects_emit_skip_and_are_not_marked_processed(db_sessi
         patch("app.agent.pipeline.ExaClient") as exa_cls,
         patch("app.agent.pipeline.LLMExtractor", return_value=fake_extraction),
         patch("app.agent.pipeline.UrlPrefilter", return_value=fake_prefilter),
-        patch("app.agent.pipeline.run_dedup_pass", new_callable=AsyncMock, return_value=[]),
+        patch("app.agent.dedup_service.run_dedup_for_run", new_callable=AsyncMock, return_value=[]),
         patch("app.agent.pipeline.emit_event", new_callable=AsyncMock),
     ):
         exa = exa_cls.return_value
@@ -108,10 +108,16 @@ async def test_prefilter_rejects_emit_skip_and_are_not_marked_processed(db_sessi
         await run_pipeline(db_session, run_id=run.id)
 
     assert exa.fetch.await_args.args[0] == ["https://a.com/0"]
-    # Les rejets du préfiltre ne sont PAS enregistrés en ProcessedUrl.
+    # Les rejets du préfiltre sont enregistrés en ProcessedUrl (exclusion définitive).
     processed = {row[0] for row in db_session.query(ProcessedUrl.url).all()}
-    assert "https://a.com/1" not in processed
-    assert "https://a.com/2" not in processed
+    assert "https://a.com/1" in processed
+    assert "https://a.com/2" in processed
+    rows = (
+        db_session.query(ProcessedUrl)
+        .filter(ProcessedUrl.url.in_(["https://a.com/1", "https://a.com/2"]))
+        .all()
+    )
+    assert all(r.reason == "prefiltered" for r in rows)
     # Un step article_skipped(prefiltered) est loggé pour chaque rejet.
     from app.models.run_step import RunStep
 
@@ -123,6 +129,11 @@ async def test_prefilter_rejects_emit_skip_and_are_not_marked_processed(db_sessi
     reasons = {(s.data or {}).get("url"): (s.data or {}).get("reason") for s in skips}
     assert reasons.get("https://a.com/1") == "prefiltered"
     assert reasons.get("https://a.com/2") == "prefiltered"
+    prefilter_details = {
+        (s.data or {}).get("url"): (s.data or {}).get("prefilter_reason") for s in skips
+    }
+    assert prefilter_details.get("https://a.com/1") == "voirie"
+    assert prefilter_details.get("https://a.com/2") == "inauguration"
 
 
 @pytest.mark.asyncio
@@ -146,7 +157,7 @@ async def test_prefilter_failure_falls_back_to_top_10(db_session):
         patch("app.agent.pipeline.ExaClient") as exa_cls,
         patch("app.agent.pipeline.LLMExtractor", return_value=fake_extraction),
         patch("app.agent.pipeline.UrlPrefilter", return_value=fake_prefilter),
-        patch("app.agent.pipeline.run_dedup_pass", new_callable=AsyncMock, return_value=[]),
+        patch("app.agent.dedup_service.run_dedup_for_run", new_callable=AsyncMock, return_value=[]),
         patch("app.agent.pipeline.emit_event", new_callable=AsyncMock),
     ):
         exa = exa_cls.return_value

@@ -1,0 +1,14 @@
+{
+  "UKC": {"cities": ["Newcastle upon Tyne", "Sunderland", "Middlesbrough", "Durham", "Gateshead"]},
+  "UKD": {"cities": ["Manchester", "Liverpool", "Preston", "Chester", "Lancaster"]},
+  "UKE": {"cities": ["Leeds", "Sheffield", "Bradford", "Hull", "York"]},
+  "UKF": {"cities": ["Nottingham", "Leicester", "Derby", "Lincoln", "Northampton"]},
+  "UKG": {"cities": ["Birmingham", "Coventry", "Wolverhampton", "Stoke-on-Trent", "Worcester"]},
+  "UKH": {"cities": ["Norwich", "Cambridge", "Ipswich", "Peterborough", "Colchester"]},
+  "UKI": {"cities": ["London", "Croydon", "Bromley", "Ealing", "Watford"]},
+  "UKJ": {"cities": ["Brighton", "Southampton", "Portsmouth", "Oxford", "Reading"]},
+  "UKK": {"cities": ["Bristol", "Plymouth", "Exeter", "Bournemouth", "Swindon"]},
+  "UKL": {"cities": ["Cardiff", "Swansea", "Newport", "Wrexham", "Barry"]},
+  "UKM": {"cities": ["Glasgow", "Edinburgh", "Aberdeen", "Dundee", "Inverness"]},
+  "UKN": {"cities": ["Belfast", "Derry", "Lisburn", "Newry", "Armagh"]}
+}
